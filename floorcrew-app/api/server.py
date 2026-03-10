@@ -13,6 +13,8 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -22,24 +24,14 @@ from escort import escort
 
 logger = logging.getLogger("floorcrew.server")
 
-app = FastAPI(title="FloorCrew Dashboard")
-
-# Serve frontend
-ROOT = Path(__file__).parent.parent
-
-@app.get("/")
-async def index():
-    return FileResponse(ROOT / "index.html")
-
-
 # ── Hardware lifecycle ────────────────────────────────────────
 
 USE_MOCK = True  # Set False when hardware is connected
 
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app):
     global USE_MOCK
-    # Try connecting to real hardware
+    # Startup: try connecting to real hardware
     arm_ok = arm.connect()
     escort_ok = await escort.connect()
     if arm_ok or escort_ok:
@@ -47,10 +39,18 @@ async def startup():
         logger.info(f"Hardware mode — arm:{arm_ok} escort:{escort_ok}")
     else:
         logger.info("No hardware detected — running in mock mode")
-
-@app.on_event("shutdown")
-async def shutdown():
+    yield
+    # Shutdown
     arm.disconnect()
+
+app = FastAPI(title="FloorCrew Dashboard", lifespan=lifespan)
+
+# Serve frontend
+ROOT = Path(__file__).parent.parent
+
+@app.get("/")
+async def index():
+    return FileResponse(ROOT / "index.html")
 
 
 # ── REST endpoints ────────────────────────────────────────────
@@ -357,4 +357,4 @@ async def handle_ws_command(data: dict):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8080, reload=True)
+    uvicorn.run("server:app", host="127.0.0.1", port=8888)
