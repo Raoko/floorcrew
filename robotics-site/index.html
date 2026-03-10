@@ -1,0 +1,4950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FloorCrew — DC Robotics</title>
+  <style>
+    /* ─── Reset ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ─── Tokens — Light / CoreWeave (White + Navy) ────────── */
+    :root {
+      --bg:          #ffffff;
+      --bg-2:        #f4f6fa;
+      --bg-card:     rgba(10,22,40,0.025);
+      --bg-dark:     #eaeff5;
+      --border:      rgba(10,22,40,0.08);
+      --border-hi:   rgba(10,42,107,0.35);
+      --text:        #0a1628;
+      --text-muted:  #5a6b85;
+      --accent:      #0a2f6b;
+      --accent-2:    #1a5aaa;
+      --accent-glow: rgba(10,47,107,0.3);
+      --white:       #ffffff;
+      --nav-h:       72px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      cursor: none;
+    }
+
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Grain overlay (static — animation removed for perf) ── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.03'/%3E%3C/svg%3E");
+      background-size: 256px;
+      pointer-events: none; z-index: 9990;
+    }
+
+    /* ─── Canvas bg ───────────────────────────────────────── */
+    #canvas-bg {
+      position: fixed; inset: 0;
+      z-index: 0; pointer-events: none;
+      opacity: 0.4;
+    }
+
+    /* ─── Custom cursor ───────────────────────────────────── */
+    #c-dot {
+      position: fixed; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--text);
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s, background 0.3s, width 0.3s, height 0.3s;
+    }
+
+    #c-ring {
+      position: fixed; width: 40px; height: 40px;
+      border-radius: 50%; border: 1px solid rgba(10,22,40,0.12);
+      pointer-events: none; z-index: 9998;
+      transform: translate(-50%, -50%);
+      transition: width 0.35s cubic-bezier(.16,1,.3,1),
+                  height 0.35s cubic-bezier(.16,1,.3,1),
+                  border-color 0.3s;
+    }
+
+    #c-dot.hover  { width: 48px; height: 48px; background: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+    #c-ring.hover { width: 80px; height: 80px; border-color: rgba(10,47,107,0.3); }
+
+    /* ─── NAV ─────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--nav-h);
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      z-index: 500;
+      background: rgba(255,255,255,0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-size: 18px; font-weight: 800;
+      letter-spacing: -0.5px; color: var(--text);
+      text-decoration: none;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .nav-logo-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent-glow);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .nav-right { display: flex; gap: 40px; align-items: center; }
+
+    .nav-link {
+      position: relative; overflow: hidden;
+      display: inline-flex; flex-direction: column;
+      height: 18px;
+      font-size: 13px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text); text-decoration: none;
+      cursor: none;
+    }
+
+    .nav-link span {
+      display: block;
+      transition: transform 0.4s cubic-bezier(.16,1,.3,1);
+      line-height: 18px;
+    }
+
+    .nav-link span:last-child {
+      position: absolute; top: 100%; left: 0;
+      color: var(--accent-2);
+    }
+
+    .nav-link:hover span { transform: translateY(-100%); }
+
+    .nav-cta {
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 10px 24px; border-radius: 100px;
+      background: var(--accent); color: #fff;
+      text-decoration: none; cursor: none;
+      transition: transform 0.2s, background 0.2s, box-shadow 0.3s;
+      box-shadow: 0 4px 16px rgba(10,47,107,0.2);
+      animation: ctaPulse 3s ease-in-out infinite;
+    }
+
+    .nav-cta:hover { transform: scale(1.04); box-shadow: 0 4px 24px rgba(10,47,107,0.35); animation: none; }
+
+    @keyframes ctaPulse {
+      0%, 100% { box-shadow: 0 4px 16px rgba(10,47,107,0.2); }
+      50% { box-shadow: 0 4px 24px rgba(10,47,107,0.3); }
+    }
+
+    /* ─── HERO ────────────────────────────────────────────── */
+    .hero {
+      position: relative; min-height: 100vh;
+      display: flex; flex-direction: column;
+      justify-content: flex-end;
+      padding: 0 48px calc(var(--nav-h) + 40px);
+      z-index: 1; overflow: hidden;
+    }
+
+    .hero-render {
+      position: absolute; inset: 0;
+      background: url('so101-real.png') center 55% / contain no-repeat;
+      opacity: 0.08;
+      filter: saturate(0.4) brightness(1.1);
+      z-index: -1;
+      animation: heroRenderIn 2.5s 0.2s cubic-bezier(.16,1,.3,1) forwards;
+      transform: scale(1.05);
+    }
+
+    @keyframes heroRenderIn {
+      from { opacity: 0; transform: scale(1.1); filter: saturate(0) brightness(1.2); }
+      to { opacity: 0.1; transform: scale(1); filter: saturate(0.4) brightness(1.1); }
+    }
+
+    .hero-eyebrow {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--text-muted); margin-bottom: 20px;
+      opacity: 0; transform: translateY(20px);
+      animation: lineIn 0.9s 0.4s cubic-bezier(.16,1,.3,1) forwards;
+    }
+
+    .hero-title {
+      font-size: clamp(64px, 10vw, 150px);
+      font-weight: 800; letter-spacing: -4px;
+      line-height: 0.92; color: var(--text);
+      margin-bottom: 40px;
+      overflow: hidden;
+    }
+
+    .hero-title .line {
+      display: block; overflow: hidden;
+    }
+
+    .hero-title .line span {
+      display: block;
+      transform: translateY(110%);
+      animation: lineReveal 1s cubic-bezier(.16,1,.3,1) forwards;
+    }
+
+    .hero-title .line:nth-child(1) span { animation-delay: 0.5s; }
+    .hero-title .line:nth-child(2) span { animation-delay: 0.65s; }
+    .hero-title .line:nth-child(3) span { animation-delay: 0.80s; }
+
+    @keyframes lineReveal {
+      to { transform: translateY(0); }
+    }
+
+    @keyframes lineIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-title .accent {
+      color: var(--accent-2);
+      text-shadow: none;
+    }
+
+    /* Hero radial light */
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: 20%; left: 10%;
+      width: 500px; height: 500px;
+      background: radial-gradient(ellipse, rgba(10,47,107,0.04) 0%, transparent 60%);
+      pointer-events: none;
+      animation: heroGlow 8s ease-in-out infinite;
+    }
+
+    @keyframes heroGlow {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    .hero-bottom {
+      display: flex; justify-content: space-between;
+      align-items: flex-end; gap: 40px;
+    }
+
+    .hero-desc {
+      font-size: clamp(15px, 1.5vw, 18px);
+      color: var(--text-muted); line-height: 1.65;
+      max-width: 420px;
+      opacity: 0; transform: translateY(20px);
+      animation: lineIn 0.9s 1.0s cubic-bezier(.16,1,.3,1) forwards;
+    }
+
+    .hero-scroll {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 12px;
+      opacity: 0;
+      animation: lineIn 0.9s 1.2s cubic-bezier(.16,1,.3,1) forwards;
+    }
+
+    .scroll-line {
+      width: 1px; height: 60px;
+      background: linear-gradient(to bottom, transparent, var(--accent));
+      animation: scrollPulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes scrollPulse {
+      0%, 100% { transform: scaleY(1); opacity: 1; }
+      50%       { transform: scaleY(0.5); opacity: 0.4; }
+    }
+
+    .scroll-label {
+      font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--text-muted); writing-mode: vertical-rl;
+      transform: rotate(180deg);
+    }
+
+    /* ─── MARQUEE ─────────────────────────────────────────── */
+    .marquee-section {
+      position: relative; z-index: 1;
+      padding: 32px 0; overflow: hidden;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-2);
+    }
+
+    .marquee-track {
+      display: flex; gap: 0;
+      animation: marquee 40s linear infinite;
+      width: max-content;
+      will-change: transform;
+    }
+
+    .marquee-item {
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(10,22,40,0.35); padding: 0 40px;
+      white-space: nowrap; display: flex;
+      align-items: center; gap: 40px;
+    }
+
+    .marquee-item::after {
+      content: '+'; font-size: 14px; font-weight: 800;
+      color: var(--accent);
+    }
+
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* ─── 3D SHOWCASE ────────────────────────────────────── */
+    .showcase {
+      position: relative; z-index: 1;
+      padding: 0;
+      min-height: 100vh;
+      background: #0a1628;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+    }
+
+    .showcase .scene-glow {
+      position: absolute;
+      width: 600px; height: 600px;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(ellipse, rgba(230,54,34,0.06) 0%, rgba(230,54,34,0.02) 30%, transparent 70%);
+      pointer-events: none;
+      animation: sceneGlowPulse 6s ease-in-out infinite;
+    }
+
+    @keyframes sceneGlowPulse {
+      0%, 100% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+      50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    }
+
+    .showcase-label {
+      position: absolute; top: 48px; left: 48px;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+      z-index: 10;
+    }
+
+    .showcase-caption {
+      position: absolute; bottom: 48px; left: 0; right: 0;
+      text-align: center; z-index: 10;
+    }
+
+    .showcase-caption h2 {
+      font-size: clamp(28px, 4vw, 48px);
+      font-weight: 800; letter-spacing: -1.5px;
+      color: #fff; margin-bottom: 8px;
+    }
+
+    .showcase-caption p {
+      font-size: 14px; color: rgba(255,255,255,0.4);
+      letter-spacing: 0.06em; text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* Scene container */
+    .sc-scene {
+      position: relative;
+      width: 800px; height: 500px;
+      perspective: 1200px;
+      transform-style: preserve-3d;
+    }
+
+    .sc-camera {
+      position: absolute; inset: 0;
+      transform-style: preserve-3d;
+      transition: transform 0.3s ease-out;
+    }
+
+    /* Grid floor */
+    .sc-floor {
+      position: absolute;
+      width: 1200px; height: 1200px;
+      left: 50%; top: 75%;
+      transform: translate(-50%, -50%) rotateX(75deg) translateZ(-180px);
+      background-image:
+        linear-gradient(rgba(230,54,34,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(230,54,34,0.06) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, black 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, black 20%, transparent 70%);
+    }
+
+    /* Scan line */
+    .sc-scanline {
+      position: absolute;
+      width: 1200px; height: 2px;
+      left: 50%; top: 75%;
+      transform: translate(-50%, -50%) rotateX(75deg) translateZ(-179px);
+      background: linear-gradient(90deg, transparent 10%, rgba(230,54,34,0.4) 50%, transparent 90%);
+      animation: scanMove 4s ease-in-out infinite;
+    }
+
+    @keyframes scanMove {
+      0%, 100% { transform: translate(-50%, -50%) rotateX(75deg) translateZ(-179px) translateY(-200px); opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      50% { transform: translate(-50%, -50%) rotateX(75deg) translateZ(-179px) translateY(200px); }
+    }
+
+    /* Ambient glow orbs */
+    .sc-glow {
+      position: absolute; border-radius: 50%;
+      filter: blur(40px); pointer-events: none;
+      contain: strict;
+    }
+
+    .sc-glow-1 {
+      width: 300px; height: 300px;
+      background: rgba(230,54,34,0.12);
+      top: 20%; left: 10%;
+      animation: glowFloat 8s ease-in-out infinite;
+    }
+
+    .sc-glow-2 {
+      width: 250px; height: 250px;
+      background: rgba(255,107,53,0.08);
+      bottom: 10%; right: 15%;
+      animation: glowFloat 10s ease-in-out infinite reverse;
+    }
+
+    .sc-glow-3 {
+      width: 200px; height: 200px;
+      background: rgba(100,140,255,0.06);
+      top: 40%; right: 25%;
+      animation: glowFloat 12s ease-in-out infinite 2s;
+    }
+
+    @keyframes glowFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(20px, -30px) scale(1.1); }
+      66% { transform: translate(-15px, 20px) scale(0.95); }
+    }
+
+    /* Robot arm base */
+    .arm-base {
+      position: absolute;
+      bottom: 6%; left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* Spotlight cone on arm */
+    .arm-spotlight {
+      position: absolute;
+      top: -5%; left: 40%;
+      width: 160px; height: 500px;
+      background: linear-gradient(180deg,
+        rgba(255,255,255,0.03) 0%,
+        rgba(255,255,255,0.015) 30%,
+        transparent 100%
+      );
+      clip-path: polygon(35% 0%, 65% 0%, 100% 100%, 0% 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Arm shadow on floor */
+    .arm-shadow {
+      position: absolute;
+      bottom: 2%; left: 48%;
+      width: 120px; height: 20px;
+      background: radial-gradient(ellipse, rgba(0,0,0,0.35) 0%, transparent 70%);
+      transform: translateX(-50%);
+      filter: blur(8px);
+      transition: width 1.5s cubic-bezier(.16,1,.3,1), left 1.5s cubic-bezier(.16,1,.3,1);
+    }
+
+    .arm-base-plate {
+      width: 100px; height: 28px;
+      background: linear-gradient(180deg, #32323f 0%, #1e1e28 50%, #16161e 100%);
+      border-radius: 8px;
+      position: relative;
+      box-shadow:
+        0 6px 30px rgba(0,0,0,0.7),
+        0 0 1px rgba(255,255,255,0.12) inset,
+        0 -2px 0 rgba(0,0,0,0.5);
+      transform: translateX(-50px);
+    }
+
+    /* Mounting bolts */
+    .arm-base-plate .base-bolt {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 6px; height: 6px; border-radius: 50%;
+      background: linear-gradient(135deg, #555, #333);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.6), 0 0 1px rgba(255,255,255,0.1) inset;
+    }
+    .base-bolt-l { left: 8px; }
+    .base-bolt-r { right: 8px; }
+
+    .arm-base-plate::before {
+      content: '';
+      position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, #3a3a4a, #28283a);
+      border: 2px solid rgba(255,255,255,0.08);
+      box-shadow: 0 0 16px rgba(230,54,34,0.2), 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    .arm-base-plate::after {
+      content: '';
+      position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(230,54,34,0.8);
+      box-shadow: 0 0 10px rgba(230,54,34,0.6), 0 0 25px rgba(230,54,34,0.5);
+      animation: basePulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes basePulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 10px rgba(230,54,34,0.6), 0 0 25px rgba(230,54,34,0.5); }
+      50% { opacity: 0.5; box-shadow: 0 0 4px rgba(230,54,34,0.4), 0 0 12px rgba(230,54,34,0.2); }
+    }
+
+    /* Idle — subtle glow pulse instead of movement (avoids transition conflicts) */
+    .arm-base.idle .arm-base-plate::after {
+      animation: basePulse 2.5s ease-in-out infinite;
+    }
+
+    /* Arm segments */
+    .arm-seg {
+      position: absolute;
+      transform-origin: center bottom;
+    }
+
+    .arm-seg-body {
+      position: relative;
+      background: linear-gradient(90deg, #28283a, #36364a 40%, #2e2e42 60%, #24243a);
+      border-radius: 5px;
+      box-shadow:
+        3px 0 12px rgba(0,0,0,0.5),
+        -3px 0 12px rgba(0,0,0,0.5),
+        0 0 1px rgba(255,255,255,0.1) inset;
+    }
+
+    /* Edge highlight — left */
+    .arm-seg-body::before {
+      content: '';
+      position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px;
+      background: linear-gradient(180deg, transparent, rgba(230,54,34,0.25), transparent);
+    }
+
+    /* Edge highlight — right */
+    .arm-seg-body::after {
+      content: '';
+      position: absolute; right: 0; top: 8px; bottom: 8px; width: 1px;
+      background: linear-gradient(180deg, transparent, rgba(255,255,255,0.06), transparent);
+    }
+
+    /* Servo housing block on segment */
+    .arm-servo-housing {
+      position: absolute;
+      left: 50%; transform: translateX(-50%);
+      top: 30%;
+      width: calc(100% + 10px); height: 22px;
+      background: linear-gradient(180deg, #3a3a4e, #2a2a3e);
+      border-radius: 3px;
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .arm-servo-housing::after {
+      content: '';
+      position: absolute; top: 50%; right: 3px; transform: translateY(-50%);
+      width: 4px; height: 4px; border-radius: 50%;
+      background: rgba(56,217,169,0.5);
+      box-shadow: 0 0 4px rgba(56,217,169,0.3);
+    }
+
+    /* Cable running along arm */
+    .arm-cable {
+      position: absolute;
+      right: -3px; top: 5%; bottom: 5%;
+      width: 2px;
+      background: linear-gradient(180deg, transparent, rgba(230,54,34,0.15) 20%, rgba(230,54,34,0.15) 80%, transparent);
+      border-radius: 1px;
+    }
+
+    /* Joint circle — larger, more detailed */
+    .arm-joint {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #42424f, #2c2c40);
+      border: 2px solid rgba(255,255,255,0.08);
+      position: absolute;
+      box-shadow: 0 0 14px rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    /* Inner bolt pattern */
+    .arm-joint::before {
+      content: '';
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .arm-joint::after {
+      content: '';
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(230,54,34,0.6);
+      box-shadow: 0 0 8px rgba(230,54,34,0.4);
+    }
+
+    /* Segment 1 — lower arm (thickest) */
+    .arm-s1 {
+      left: 50%; bottom: 100%;
+      transform: translateX(-50%);
+    }
+
+    .arm-s1 .arm-seg-body {
+      width: 20px; height: 130px;
+    }
+
+    .arm-s1 .arm-joint {
+      top: -11px; left: 50%; transform: translateX(-50%);
+    }
+
+    /* Segment 2 — upper arm */
+    .arm-s2 {
+      left: 50%; bottom: 100%;
+      transform: translateX(-50%);
+      transform-origin: center bottom;
+    }
+
+    .arm-s2 .arm-seg-body {
+      width: 16px; height: 110px;
+    }
+
+    .arm-s2 .arm-joint {
+      top: -11px; left: 50%; transform: translateX(-50%);
+    }
+
+    /* Segment 3 — forearm (thinnest) */
+    .arm-s3 {
+      left: 50%; bottom: 100%;
+      transform: translateX(-50%);
+      transform-origin: center bottom;
+    }
+
+    .arm-s3 .arm-seg-body {
+      width: 14px; height: 90px;
+    }
+
+    .arm-s3 .arm-joint {
+      top: -10px; left: 50%; transform: translateX(-50%);
+    }
+
+    /* Gripper — precision QSFP clamp */
+    .arm-gripper {
+      position: absolute;
+      left: 50%; top: -54px;
+      transform: translateX(-50%);
+      width: 60px; height: 54px;
+    }
+
+    .gripper-mount {
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 32px; height: 18px;
+      background: linear-gradient(180deg, #3e3e52, #2c2c40, #252538);
+      border-radius: 4px 4px 2px 2px;
+      box-shadow: 0 0 1px rgba(255,255,255,0.12) inset, 0 3px 12px rgba(0,0,0,0.5);
+    }
+
+    /* Wrist rotation indicator */
+    .gripper-mount::before {
+      content: '';
+      position: absolute; top: 3px; left: 50%; transform: translateX(-50%);
+      width: 16px; height: 3px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+      border-radius: 1px;
+    }
+
+    .gripper-mount::after {
+      content: '';
+      position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%);
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(230,54,34,0.6);
+      box-shadow: 0 0 8px rgba(230,54,34,0.5);
+    }
+
+    .gripper-finger {
+      position: absolute; top: 18px;
+      width: 10px; height: 32px;
+      background: linear-gradient(180deg, #4e4e66, #3a3a50, #2e2e42);
+      border-radius: 2px 2px 3px 3px;
+      transform-origin: center top;
+      transition: transform 1s cubic-bezier(.16,1,.3,1);
+      box-shadow: 2px 2px 10px rgba(0,0,0,0.6), -1px 0 6px rgba(0,0,0,0.4);
+    }
+
+    /* Inner grip surface — rubber pad texture */
+    .gripper-finger::before {
+      content: '';
+      position: absolute; bottom: 2px; width: 100%; height: 16px;
+      background: repeating-linear-gradient(180deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 3px);
+      border-radius: 0 0 2px 2px;
+    }
+
+    /* Grip tip pad — the contact surface */
+    .gripper-finger::after {
+      content: '';
+      position: absolute; bottom: 0;
+      left: 50%; transform: translateX(-50%);
+      width: 14px; height: 6px;
+      border-radius: 1px 1px 4px 4px;
+      background: linear-gradient(180deg, #5a5a72, #3e3e56);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.6), 0 0 8px rgba(230,54,34,0.12);
+    }
+
+    .gripper-l { left: 4px; transform: rotate(12deg); }
+    .gripper-r { right: 4px; transform: rotate(-12deg); }
+
+    /* Servo detail on each finger */
+    .gripper-servo {
+      position: absolute; top: 3px;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: linear-gradient(135deg, #555, #3a3a48);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .gripper-l .gripper-servo { right: -2px; }
+    .gripper-r .gripper-servo { left: -2px; }
+
+    /* Optic held in gripper — positioned between finger tips */
+    .gripper-optic {
+      position: absolute;
+      bottom: -6px; left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .gripper-optic.held {
+      opacity: 1;
+    }
+
+    /* Optic module */
+    .sc-optic {
+      width: 28px; height: 12px;
+      background: linear-gradient(90deg, #3a5a8a, #4a7ab8, #3a5a8a);
+      border-radius: 2px;
+      box-shadow:
+        0 0 12px rgba(74,122,184,0.4),
+        0 0 30px rgba(74,122,184,0.15),
+        0 1px 0 rgba(255,255,255,0.15) inset;
+      z-index: 5;
+    }
+
+    .sc-optic::before {
+      content: '';
+      position: absolute; right: -3px; top: 50%; transform: translateY(-50%);
+      width: 6px; height: 6px; border-radius: 1px;
+      background: linear-gradient(135deg, #6aa0e0, #4a80c0);
+      box-shadow: 0 0 6px rgba(106,160,224,0.5);
+    }
+
+    .sc-optic::after {
+      content: '';
+      position: absolute; left: 3px; top: 2px;
+      width: 16px; height: 2px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 1px;
+    }
+
+    .sc-optic-glow {
+      position: absolute; inset: -8px;
+      border-radius: 8px;
+      background: radial-gradient(ellipse, rgba(74,122,184,0.3) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.8s;
+    }
+
+    /* Pickup tray — where the optic sits before arm grabs it */
+    .sc-tray {
+      position: absolute;
+      left: 14%; top: 30%;
+      width: 80px; height: 12px;
+      background: linear-gradient(180deg, #2e2e3e, #222232, #1a1a28);
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: 0 6px 30px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.04) inset;
+      z-index: 3;
+    }
+
+    /* Tray lip edges */
+    .sc-tray::before {
+      content: '';
+      position: absolute; left: 4px; right: 4px; top: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+      border-radius: 2px;
+    }
+
+    /* Tray slot grooves */
+    .sc-tray::after {
+      content: '';
+      position: absolute; top: 50%; left: 10px; right: 10px; height: 1px;
+      transform: translateY(-50%);
+      background: repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px, transparent 2px, transparent 8px);
+    }
+
+    /* Tray label */
+    .sc-tray-label {
+      position: absolute;
+      bottom: -18px; left: 50%; transform: translateX(-50%);
+      font-family: 'Courier New', monospace;
+      font-size: 8px; letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.15);
+      white-space: nowrap;
+    }
+
+    .sc-tray-optic {
+      position: absolute;
+      top: -8px; left: 50%; transform: translateX(-50%);
+      width: 28px; height: 12px;
+      background: linear-gradient(90deg, #3a5a8a, #4a7ab8, #3a5a8a);
+      border-radius: 2px;
+      box-shadow: 0 0 14px rgba(74,122,184,0.5), 0 0 35px rgba(74,122,184,0.18);
+      transition: opacity 0.4s;
+    }
+
+    .sc-tray-optic::before {
+      content: '';
+      position: absolute; right: -3px; top: 50%; transform: translateY(-50%);
+      width: 6px; height: 6px; border-radius: 1px;
+      background: linear-gradient(135deg, #6aa0e0, #4a80c0);
+      box-shadow: 0 0 8px rgba(106,160,224,0.6);
+    }
+
+    /* Switch/device target */
+    .sc-switch {
+      position: absolute;
+      right: 10%; top: 28%;
+      width: 180px; height: 56px;
+      background: linear-gradient(180deg, #1e1e2a 0%, #16161e 100%);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow:
+        0 20px 60px rgba(0,0,0,0.6),
+        0 0 1px rgba(255,255,255,0.1) inset;
+      transform: translateZ(20px) rotateY(-5deg);
+      transform-style: preserve-3d;
+    }
+
+    .sc-switch::before {
+      content: '';
+      position: absolute; top: 4px; left: 4px; right: 4px; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    }
+
+    /* Switch ports */
+    .switch-ports {
+      position: absolute; top: 50%; left: 16px; right: 16px;
+      transform: translateY(-50%);
+      display: flex; gap: 6px;
+      align-items: center;
+    }
+
+    .switch-port {
+      width: 28px; height: 14px;
+      background: #0a0a10;
+      border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.04);
+      position: relative;
+    }
+
+    .switch-port.target {
+      border-color: rgba(230,54,34,0.3);
+      box-shadow: 0 0 8px rgba(230,54,34,0.15);
+      animation: portPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes portPulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(230,54,34,0.15); }
+      50% { box-shadow: 0 0 16px rgba(230,54,34,0.3), 0 0 4px rgba(230,54,34,0.5) inset; }
+    }
+
+    .switch-port.filled::after {
+      content: '';
+      position: absolute; inset: 2px;
+      background: linear-gradient(90deg, #2a4a6a, #3a6a9a);
+      border-radius: 1px;
+    }
+
+    .switch-port.filled .port-led {
+      background: #38d9a9;
+      box-shadow: 0 0 4px #38d9a9;
+    }
+
+    .port-led {
+      position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+      width: 3px; height: 3px; border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .switch-label {
+      position: absolute; bottom: -18px; left: 16px;
+      font-size: 8px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(255,255,255,0.15);
+    }
+
+    /* HUD elements */
+    .sc-hud {
+      position: absolute; z-index: 10;
+      font-size: 9px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: rgba(230,54,34,0.5);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .sc-hud-tl { top: 48px; right: 48px; text-align: right; }
+    .sc-hud-br { bottom: 80px; left: 48px; }
+
+    .sc-hud-line {
+      margin: 4px 0;
+      opacity: 0.6;
+    }
+
+    .sc-hud-val {
+      color: rgba(255,255,255,0.35);
+    }
+
+    /* Particles */
+    .sc-particles {
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 2;
+    }
+
+    .sc-particle {
+      position: absolute;
+      width: 2px; height: 2px;
+      background: rgba(230,54,34,0.4);
+      border-radius: 50%;
+      animation: particleDrift 6s linear infinite;
+    }
+
+    @keyframes particleDrift {
+      0% { transform: translateY(0) translateX(0); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-200px) translateX(30px); opacity: 0; }
+    }
+
+    /* Insertion flash */
+    .sc-flash {
+      position: absolute;
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(74,122,184,0.6) 0%, rgba(230,54,34,0.2) 40%, transparent 70%);
+      pointer-events: none;
+      opacity: 0;
+      z-index: 6;
+      filter: blur(8px);
+    }
+
+    /* Alignment laser */
+    .sc-laser {
+      position: absolute;
+      width: 120px; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(230,54,34,0.5), transparent);
+      opacity: 0;
+      z-index: 4;
+      filter: blur(0.5px);
+    }
+
+    .sc-laser-v {
+      width: 1px; height: 60px;
+      background: linear-gradient(180deg, transparent, rgba(230,54,34,0.4), transparent);
+    }
+
+    /* Bloom overlay */
+    .sc-bloom {
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 40% 40% at 65% 45%, rgba(74,122,184,0.08) 0%, transparent 100%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1s;
+      z-index: 7;
+    }
+
+    /* Corner brackets */
+    .sc-bracket {
+      position: absolute;
+      width: 20px; height: 20px;
+      z-index: 10;
+    }
+
+    .sc-bracket::before, .sc-bracket::after {
+      content: '';
+      position: absolute;
+      background: rgba(230,54,34,0.25);
+    }
+
+    .sc-bracket-tl { top: 24px; left: 24px; }
+    .sc-bracket-tl::before { top: 0; left: 0; width: 20px; height: 1px; }
+    .sc-bracket-tl::after { top: 0; left: 0; width: 1px; height: 20px; }
+
+    .sc-bracket-tr { top: 24px; right: 24px; }
+    .sc-bracket-tr::before { top: 0; right: 0; width: 20px; height: 1px; }
+    .sc-bracket-tr::after { top: 0; right: 0; width: 1px; height: 20px; }
+
+    .sc-bracket-bl { bottom: 72px; left: 24px; }
+    .sc-bracket-bl::before { bottom: 0; left: 0; width: 20px; height: 1px; }
+    .sc-bracket-bl::after { bottom: 0; left: 0; width: 1px; height: 20px; }
+
+    .sc-bracket-br { bottom: 72px; right: 24px; }
+    .sc-bracket-br::before { bottom: 0; right: 0; width: 20px; height: 1px; }
+    .sc-bracket-br::after { bottom: 0; right: 0; width: 1px; height: 20px; }
+
+    /* Showcase reveal */
+    .showcase .reveal-sc {
+      opacity: 0;
+      transform: translateY(30px) scale(0.95);
+      transition: opacity 1.2s cubic-bezier(.16,1,.3,1), transform 1.2s cubic-bezier(.16,1,.3,1);
+    }
+
+    .showcase .reveal-sc.in {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    /* Status indicator */
+    .sc-status {
+      position: absolute; top: 48px; left: 48px;
+      display: flex; align-items: center; gap: 8px;
+      z-index: 10;
+    }
+
+    .sc-status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #38d9a9;
+      box-shadow: 0 0 8px rgba(56,217,169,0.5);
+      animation: statusBlink 3s ease-in-out infinite;
+    }
+
+    @keyframes statusBlink {
+      0%, 90%, 100% { opacity: 1; }
+      95% { opacity: 0.3; }
+    }
+
+    .sc-status-text {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(56,217,169,0.6);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sc-scene { width: 100%; height: 400px; transform: scale(0.7); }
+      .showcase-label, .sc-hud { display: none; }
+      .sc-switch { right: 5%; width: 140px; height: 48px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sc-scanline, .sc-particle, .sc-glow { animation: none !important; }
+      .arm-s1, .arm-s2, .arm-s3, .gripper-finger, .sc-optic { transition: none !important; animation: none !important; }
+    }
+
+    /* ─── ROBOTS SECTION ─────────────────────────────────── */
+    .robots-section {
+      position: relative; z-index: 1;
+      padding: 120px 48px;
+      background: var(--bg);
+      content-visibility: auto;
+      contain-intrinsic-size: auto 800px;
+    }
+
+    .section-header {
+      display: flex; justify-content: space-between;
+      align-items: flex-end; margin-bottom: 64px;
+    }
+
+    .section-num {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .section-title {
+      font-size: clamp(36px, 5vw, 64px);
+      font-weight: 800; letter-spacing: -2px;
+      line-height: 1.0; color: var(--text);
+      position: relative;
+      display: inline-block;
+    }
+
+    .section-title::after {
+      content: '';
+      position: absolute; bottom: -8px; left: 0;
+      width: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent));
+      border-radius: 2px;
+      transition: width 1.2s cubic-bezier(.16,1,.3,1) 0.3s;
+    }
+
+    .reveal.in .section-title::after,
+    .section-header.reveal.in .section-title::after {
+      width: 60px;
+    }
+
+    .robots-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .robot-card {
+      position: relative; overflow: hidden;
+      border-radius: 16px; cursor: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 48px 40px;
+      min-height: 420px;
+      display: flex; flex-direction: column;
+      justify-content: flex-end;
+      transition: border-color 0.3s, transform 0.4s cubic-bezier(.16,1,.3,1), box-shadow 0.4s cubic-bezier(.16,1,.3,1);
+      transform-style: preserve-3d;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(10,22,40,0.06);
+    }
+
+    .robot-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(10,22,40,0.06), transparent);
+    }
+
+    .robot-card:hover {
+      border-color: var(--border-hi);
+      transform: translateY(-6px);
+      box-shadow: 0 20px 60px rgba(10,22,40,0.1), 0 0 40px rgba(10,47,107,0.06);
+    }
+
+    .robot-card-bg {
+      position: absolute; inset: 0;
+      opacity: 0.08;
+      transition: opacity 0.6s cubic-bezier(.16,1,.3,1);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      filter: saturate(0.7) brightness(0.9);
+    }
+
+    .robot-card:nth-child(1) .robot-card-bg {
+      background-image: url('so101-real.png');
+      background-position: center 30%;
+      background-size: contain;
+    }
+
+    .robot-card:nth-child(2) .robot-card-bg {
+      background-image: url('guide-render.png');
+      background-position: center 40%;
+    }
+
+    .robot-card:hover .robot-card-bg { opacity: 0.3; filter: saturate(1) brightness(1); }
+
+    .robot-card-num {
+      position: absolute; top: 32px; left: 40px;
+      font-size: 120px; font-weight: 800;
+      letter-spacing: -6px; line-height: 1;
+      color: rgba(10,22,40,0.04);
+      transition: color 0.5s cubic-bezier(.16,1,.3,1);
+    }
+
+    .robot-card:hover .robot-card-num {
+      color: rgba(10,47,107,0.08);
+    }
+
+    .robot-card-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 16px;
+      background: rgba(10,47,107,0.06);
+      border: 1px solid rgba(10,47,107,0.15);
+      padding: 5px 12px; border-radius: 100px;
+      width: fit-content;
+    }
+
+    .robot-card-badge::before {
+      content: ''; width: 5px; height: 5px;
+      border-radius: 50%; background: var(--accent);
+    }
+
+    .robot-card h3 {
+      font-size: clamp(28px, 3vw, 40px);
+      font-weight: 800; letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+
+    .robot-card p {
+      font-size: 15px; color: var(--text-muted);
+      line-height: 1.65; max-width: 360px;
+    }
+
+    .robot-specs {
+      margin-top: 24px;
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+
+    .spec-tag {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 5px 12px; border-radius: 100px;
+      border: 1px solid rgba(10,22,40,0.1);
+      color: var(--text-muted);
+      transition: border-color 0.3s, color 0.3s, transform 0.25s cubic-bezier(.16,1,.3,1), background 0.3s, opacity 0.6s cubic-bezier(.16,1,.3,1);
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .reveal.in .spec-tag {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal.in .spec-tag:nth-child(1) { transition-delay: 0.3s; }
+    .reveal.in .spec-tag:nth-child(2) { transition-delay: 0.4s; }
+    .reveal.in .spec-tag:nth-child(3) { transition-delay: 0.5s; }
+    .reveal.in .spec-tag:nth-child(4) { transition-delay: 0.6s; }
+
+    .spec-tag:hover {
+      transform: translateY(-2px);
+      background: rgba(10,47,107,0.05);
+    }
+
+    .robot-card:hover .spec-tag {
+      border-color: rgba(10,47,107,0.25);
+      color: var(--accent);
+    }
+
+    /* ─── PLATFORM PICKER ────────────────────────────────── */
+    .platform-picker {
+      margin-top: 48px;
+    }
+
+    .platform-picker-title {
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--text-muted); margin-bottom: 24px;
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .platform-picker-title::after {
+      content: '';
+      flex: 1; height: 1px;
+      background: rgba(10,22,40,0.08);
+    }
+
+    .platform-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .platform-card {
+      position: relative;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 32px 28px;
+      background: var(--bg-card);
+      cursor: none;
+      transition: border-color 0.3s, transform 0.4s cubic-bezier(.16,1,.3,1), box-shadow 0.4s;
+    }
+
+    .platform-card:hover {
+      border-color: var(--border-hi);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(10,47,107,0.08);
+    }
+
+    .platform-card.recommended {
+      border-color: rgba(10,47,107,0.25);
+      background: rgba(10,47,107,0.03);
+    }
+
+    .platform-card.recommended::before {
+      content: 'RECOMMENDED';
+      position: absolute; top: -10px; left: 28px;
+      font-size: 9px; font-weight: 800;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: #fff;
+      background: var(--accent);
+      padding: 3px 10px; border-radius: 100px;
+    }
+
+    .platform-card.easiest::before {
+      content: 'EASIEST';
+      position: absolute; top: -10px; left: 28px;
+      font-size: 9px; font-weight: 800;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: #fff;
+      background: #38d9a9;
+      padding: 3px 10px; border-radius: 100px;
+    }
+
+    .platform-name {
+      font-size: 20px; font-weight: 800;
+      letter-spacing: -0.3px;
+      margin-bottom: 8px;
+    }
+
+    .platform-price {
+      font-size: 28px; font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+
+    .platform-desc {
+      font-size: 14px; line-height: 1.6;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .platform-meta {
+      display: flex; flex-direction: column; gap: 8px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(10,22,40,0.06);
+    }
+
+    .platform-row {
+      display: flex; justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .platform-row-label {
+      font-weight: 700; color: var(--text);
+      letter-spacing: 0.04em; text-transform: uppercase;
+    }
+
+    .platform-row-val {
+      color: var(--text-muted); font-weight: 600;
+    }
+
+    .platform-row-val.green { color: #22c55e; }
+    .platform-row-val.amber { color: #f59e0b; }
+    .platform-row-val.red { color: #ef4444; }
+
+    .platform-pros {
+      margin-top: 16px;
+      font-size: 13px; line-height: 1.7;
+      color: var(--text-muted);
+    }
+
+    .platform-pros strong {
+      color: var(--text);
+    }
+
+    .platform-vote {
+      margin-top: 20px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .platform-vote-btn {
+      flex: 1;
+      padding: 12px 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: none;
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .platform-vote-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(10,47,107,0.05);
+    }
+
+    .platform-vote-btn.voted {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      animation: voteConfirm 0.4s cubic-bezier(.16,1,.3,1);
+    }
+
+    @keyframes voteConfirm {
+      0% { transform: scale(0.92); }
+      50% { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+
+    .platform-verdict {
+      margin-top: 24px;
+      padding: 20px 24px;
+      border-radius: 12px;
+      background: rgba(10,47,107,0.04);
+      border: 1px solid rgba(10,47,107,0.1);
+    }
+
+    .platform-verdict p {
+      font-size: 14px; line-height: 1.7; color: var(--text-muted);
+    }
+
+    .platform-verdict strong { color: var(--text); }
+
+    @media (max-width: 768px) {
+      .platform-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── DATA HALL SHOWCASE ─────────────────────────────── */
+    .datahall {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #0a1628 0%, #0c1a30 50%, #0a1628 100%);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      padding: 80px 0;
+    }
+
+    .dh-label {
+      position: absolute; top: 48px; left: 48px;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: rgba(255,255,255,0.2);
+      z-index: 10;
+    }
+
+    .dh-status {
+      position: absolute; top: 48px; right: 48px;
+      display: flex; align-items: center; gap: 8px;
+      z-index: 10;
+    }
+
+    .dh-status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #38d9a9;
+      box-shadow: 0 0 6px rgba(56,217,169,0.5);
+      animation: statusBlink 3s ease-in-out infinite;
+    }
+
+    .dh-status-text {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(56,217,169,0.5);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    /* Aisle perspective container */
+    .dh-aisle {
+      position: relative;
+      width: 900px; max-width: 95vw;
+      height: 480px;
+      perspective: 900px;
+      transform-style: preserve-3d;
+    }
+
+    .dh-camera {
+      position: absolute; inset: 0;
+      transform-style: preserve-3d;
+      transition: transform 0.4s ease-out;
+    }
+
+    /* Corridor floor */
+    .dh-floor {
+      position: absolute;
+      width: 100%; height: 300px;
+      bottom: 0; left: 0;
+      background: linear-gradient(180deg, rgba(15,18,28,0) 0%, rgba(15,18,28,1) 30%);
+      transform: rotateX(60deg) translateZ(-60px);
+      transform-origin: bottom center;
+    }
+
+    .dh-floor::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(56,217,169,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56,217,169,0.04) 1px, transparent 1px);
+      background-size: 50px 50px;
+      mask-image: linear-gradient(180deg, transparent 0%, black 40%, black 80%, transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 40%, black 80%, transparent 100%);
+    }
+
+    /* Floor reflection */
+    .dh-floor-reflect {
+      position: absolute;
+      width: 60%; height: 200px;
+      bottom: 0; left: 20%;
+      background: linear-gradient(180deg, rgba(56,217,169,0.02) 0%, transparent 100%);
+      transform: rotateX(60deg) translateZ(-59px);
+      transform-origin: bottom center;
+      filter: blur(20px);
+    }
+
+    /* Rack columns */
+    .dh-rack {
+      position: absolute;
+      width: 60px;
+      background: linear-gradient(180deg, #14161e 0%, #0e1018 100%);
+      border: 1px solid rgba(255,255,255,0.04);
+      border-radius: 3px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    }
+
+    .dh-rack::before {
+      content: '';
+      position: absolute; top: 6px; left: 6px; right: 6px; bottom: 6px;
+      background: repeating-linear-gradient(
+        180deg,
+        rgba(255,255,255,0.02) 0px,
+        rgba(255,255,255,0.02) 2px,
+        transparent 2px,
+        transparent 8px
+      );
+    }
+
+    .dh-rack-led {
+      position: absolute; right: 8px;
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      background: #38d9a9;
+      box-shadow: 0 0 4px rgba(56,217,169,0.5);
+    }
+
+    .dh-rack-led.amber { background: #ffbd2e; box-shadow: 0 0 4px rgba(255,189,46,0.5); }
+    .dh-rack-led.red { background: #ff5f56; box-shadow: 0 0 4px rgba(255,95,86,0.5); }
+
+    .dh-rack-label {
+      position: absolute; bottom: -16px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 7px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(255,255,255,0.15);
+      white-space: nowrap;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    /* Left racks — near to far */
+    .dh-rack-l0 { left: 1%; top: 30%; height: 160px; transform: perspective(400px) rotateY(16deg) translateZ(60px); opacity: 0.5; }
+    .dh-rack-l1 { left: 5%; top: 25%; height: 200px; transform: perspective(400px) rotateY(12deg) translateZ(40px); }
+    .dh-rack-l2 { left: 12%; top: 20%; height: 220px; transform: perspective(400px) rotateY(8deg) translateZ(20px); }
+    .dh-rack-l3 { left: 20%; top: 18%; height: 230px; transform: perspective(400px) rotateY(4deg) translateZ(0px); }
+    .dh-rack-l4 { left: 28%; top: 16%; height: 240px; transform: perspective(400px) rotateY(2deg) translateZ(-20px); opacity: 0.7; }
+
+    /* Right racks — near to far */
+    .dh-rack-r0 { right: 1%; top: 30%; height: 160px; transform: perspective(400px) rotateY(-16deg) translateZ(60px); opacity: 0.5; }
+    .dh-rack-r1 { right: 5%; top: 25%; height: 200px; transform: perspective(400px) rotateY(-12deg) translateZ(40px); }
+    .dh-rack-r2 { right: 12%; top: 20%; height: 220px; transform: perspective(400px) rotateY(-8deg) translateZ(20px); }
+    .dh-rack-r3 { right: 20%; top: 18%; height: 230px; transform: perspective(400px) rotateY(-4deg) translateZ(0px); }
+    .dh-rack-r4 { right: 28%; top: 16%; height: 240px; transform: perspective(400px) rotateY(-2deg) translateZ(-20px); opacity: 0.7; }
+
+    /* Target rack highlight */
+    .dh-rack.target {
+      border-color: rgba(230,54,34,0.3);
+      box-shadow: 0 0 30px rgba(0,0,0,0.5), 0 0 20px rgba(230,54,34,0.1);
+    }
+
+    .dh-rack.target::after {
+      content: 'ASSIGNED';
+      position: absolute; top: -22px; left: 50%; transform: translateX(-50%) rotateY(0deg);
+      font-size: 7px; font-weight: 800;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(230,54,34,0.9);
+      padding: 3px 8px; border-radius: 3px;
+      background: rgba(230,54,34,0.15);
+      border: 1px solid rgba(230,54,34,0.35);
+      white-space: nowrap;
+      animation: assignPulse 2s ease-in-out infinite;
+      z-index: 10;
+    }
+
+    @keyframes assignPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Escort robot body */
+    .dh-robot {
+      position: absolute;
+      bottom: 28%; left: 30%;
+      width: 44px; height: 64px;
+      z-index: 5;
+      transition: left 3s cubic-bezier(.16,1,.3,1), bottom 2s cubic-bezier(.16,1,.3,1);
+      animation: robotIdle 3s ease-in-out infinite;
+    }
+
+    @keyframes robotIdle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
+    .dh-robot-body {
+      width: 44px; height: 44px;
+      background: linear-gradient(180deg, #2a2c3a 0%, #1e2030 100%);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+      position: relative;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+
+    .dh-robot-body::before {
+      content: '';
+      position: absolute; top: 8px; left: 8px; right: 8px; height: 14px;
+      background: rgba(56,217,169,0.1);
+      border-radius: 4px;
+      border: 1px solid rgba(56,217,169,0.15);
+    }
+
+    .dh-robot-eye {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      width: 8px; height: 4px; border-radius: 2px;
+      background: #38d9a9;
+      box-shadow: 0 0 8px rgba(56,217,169,0.6);
+      animation: robotEye 4s ease-in-out infinite;
+    }
+
+    @keyframes robotEye {
+      0%, 85%, 100% { opacity: 1; width: 8px; }
+      90% { opacity: 0.3; width: 12px; }
+    }
+
+    .dh-robot-base {
+      position: absolute; bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 36px; height: 8px;
+      background: linear-gradient(180deg, #222234, #1a1a2c);
+      border-radius: 0 0 4px 4px;
+    }
+
+    .dh-robot-wheel {
+      position: absolute; bottom: -3px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #1a1a24;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .dh-robot-wheel-l { left: 4px; }
+    .dh-robot-wheel-r { right: 4px; }
+
+    /* Laser beam from robot eye — angled toward rack */
+    .dh-scan-beam {
+      position: absolute;
+      top: 14px; left: 100%;
+      width: 0; height: 2px;
+      background: linear-gradient(90deg, rgba(230,54,34,0.8), rgba(230,54,34,0.4), transparent);
+      transform-origin: left center;
+      opacity: 0;
+      filter: blur(0.5px);
+      transition: width 0.6s cubic-bezier(.16,1,.3,1), opacity 0.4s, transform 0.8s cubic-bezier(.16,1,.3,1);
+    }
+
+    .dh-scan-beam.active {
+      opacity: 0.8;
+      width: 200px;
+      transform: rotate(-25deg);
+    }
+
+    .dh-scan-beam.sweep {
+      animation: beamSweep 3.5s cubic-bezier(.22,1,.36,1) forwards;
+    }
+
+    @keyframes beamSweep {
+      0%   { transform: rotate(-25deg); }
+      100% { transform: rotate(10deg); }
+    }
+
+    /* Laser dot + horizontal bar sweeping down the rack face */
+    .dh-laser-sweep {
+      position: absolute;
+      width: 60px; height: 3px;
+      background: linear-gradient(90deg, transparent, rgba(230,54,34,0.9), rgba(230,54,34,0.9), transparent);
+      z-index: 6;
+      visibility: hidden;
+      opacity: 0;
+      filter: blur(0.3px);
+      box-shadow: 0 0 12px rgba(230,54,34,0.5), 0 0 30px rgba(230,54,34,0.2);
+    }
+
+    .dh-laser-sweep::before {
+      content: '';
+      position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(230,54,34,0.9);
+      box-shadow: 0 0 12px rgba(230,54,34,0.8), 0 0 30px rgba(230,54,34,0.4);
+    }
+
+    .dh-laser-sweep.active {
+      visibility: visible;
+      opacity: 1;
+      animation: laserSweepDown 3.5s cubic-bezier(.22,1,.36,1) forwards;
+    }
+
+    @keyframes laserSweepDown {
+      0%   { top: 10%; opacity: 0; }
+      5%   { opacity: 1; }
+      90%  { opacity: 1; }
+      95%  { opacity: 0.5; }
+      100% { top: 75%; opacity: 0; }
+    }
+
+    /* Laser scan data overlay */
+    .dh-scan-data {
+      position: absolute;
+      z-index: 8;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 8px; font-weight: 700;
+      letter-spacing: 0.1em;
+      color: rgba(230,54,34,0.6);
+      opacity: 0;
+      transition: opacity 0.4s;
+      white-space: nowrap;
+    }
+
+    .dh-scan-data.visible {
+      opacity: 1;
+      animation: scanDataIn 0.6s cubic-bezier(.16,1,.3,1) forwards;
+    }
+
+    @keyframes scanDataIn {
+      0% { opacity: 0; transform: translateX(20px); filter: blur(4px); }
+      60% { filter: blur(0); }
+      100% { opacity: 1; transform: translateX(0); filter: blur(0); }
+    }
+
+    /* Narration ticker — floating status text during animation */
+    .dh-narration {
+      position: absolute;
+      bottom: 12%; left: 50%;
+      transform: translateX(-50%);
+      z-index: 12;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.5);
+      background: rgba(10,18,32,0.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 6px 16px;
+      border-radius: 100px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.5s, transform 0.5s cubic-bezier(.16,1,.3,1);
+    }
+
+    .dh-narration.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .dh-narration.hidden {
+      opacity: 0;
+      transform: translateX(-50%) translateY(6px);
+    }
+
+    .dh-narration-dot {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      margin-right: 8px;
+      vertical-align: middle;
+      background: rgba(56,217,169,0.7);
+      box-shadow: 0 0 4px rgba(56,217,169,0.4);
+    }
+
+    .dh-narration-dot.amber {
+      background: rgba(255,189,46,0.7);
+      box-shadow: 0 0 4px rgba(255,189,46,0.4);
+    }
+
+    /* Scan data — amber state for flagged nodes */
+    .dh-scan-data.flagged {
+      color: rgba(255,189,46,0.7);
+    }
+
+    /* Human figure — DCT walking ahead of robot */
+    .dh-human {
+      position: absolute;
+      bottom: 34%; left: 42%;
+      z-index: 8;
+      transition: left 3.2s cubic-bezier(.16,1,.3,1), bottom 2s cubic-bezier(.16,1,.3,1);
+    }
+
+    .dh-human-body {
+      width: 24px; height: 56px;
+      position: relative;
+    }
+
+    .dh-human-head {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      margin: 0 auto 2px;
+      position: relative;
+    }
+
+    .dh-human-head::after {
+      content: '';
+      position: absolute; top: -3px; left: -1px; right: -1px; height: 8px;
+      background: rgba(230,54,34,0.25);
+      border-radius: 4px 4px 0 0;
+    }
+
+    .dh-human-torso {
+      width: 20px; height: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.08));
+      border-radius: 4px 4px 0 0;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .dh-human-torso::before {
+      content: 'CW';
+      position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+      font-size: 5px; font-weight: 800;
+      color: rgba(230,54,34,0.5);
+      letter-spacing: 0.5px;
+    }
+
+    .dh-human-arm {
+      position: absolute; top: 2px;
+      width: 5px; height: 18px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 2px;
+      transform-origin: top center;
+      transition: transform 1s cubic-bezier(.16,1,.3,1);
+    }
+
+    .dh-human-arm-l { left: -6px; transform: rotate(0deg); }
+    .dh-human-arm-r { right: -6px; transform: rotate(0deg); }
+
+    .dh-human-arm-l.reaching { transform: rotate(-40deg); }
+    .dh-human-arm-r.reaching { transform: rotate(30deg); }
+
+    .dh-human-legs {
+      width: 18px; height: 16px;
+      background: rgba(255,255,255,0.08);
+      margin: 0 auto;
+      border-radius: 0 0 2px 2px;
+    }
+
+    /* Rack door — opens on rack face */
+    .dh-rack-door {
+      position: absolute; inset: 3px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.04);
+      border-radius: 2px;
+      transform-origin: left center;
+      transition: transform 1.2s cubic-bezier(.16,1,.3,1);
+      z-index: 1;
+    }
+
+    .dh-rack-door.open {
+      transform: perspective(200px) rotateY(-70deg);
+    }
+
+    .dh-rack-door-handle {
+      position: absolute; right: 4px; top: 50%;
+      transform: translateY(-50%);
+      width: 3px; height: 12px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 1px;
+    }
+
+    /* HUD overlays */
+    .dh-hud-panel {
+      position: absolute;
+      background: rgba(15,18,28,0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(56,217,169,0.12);
+      border-radius: 6px;
+      padding: 10px 14px;
+      z-index: 8;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.6s, transform 0.6s cubic-bezier(.16,1,.3,1);
+    }
+
+    .dh-hud-panel.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .dh-hud-title {
+      font-size: 8px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(56,217,169,0.6);
+      margin-bottom: 6px;
+    }
+
+    .dh-hud-row {
+      font-size: 9px; color: rgba(255,255,255,0.35);
+      margin: 3px 0;
+      display: flex; justify-content: space-between; gap: 12px;
+    }
+
+    .dh-hud-val { color: rgba(255,255,255,0.6); }
+    .dh-hud-ok { color: rgba(56,217,169,0.7); }
+    .dh-hud-warn { color: rgba(255,189,46,0.7); }
+
+    .dh-hud-escort { top: 20%; right: 8%; }
+    .dh-hud-verify { top: 35%; left: 6%; }
+    .dh-hud-log { bottom: 20%; right: 10%; }
+
+    /* Aisle depth haze */
+    .dh-haze {
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 50% 30%, rgba(56,217,169,0.02) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Destination guide line — dashed path from robot toward target rack */
+    .dh-guide-line {
+      position: absolute;
+      bottom: 30%; left: 46%;
+      width: 0; height: 2px;
+      background: repeating-linear-gradient(90deg, rgba(230,54,34,0.5) 0px, rgba(230,54,34,0.5) 6px, transparent 6px, transparent 12px);
+      z-index: 3;
+      transition: width 1.5s cubic-bezier(.16,1,.3,1);
+    }
+
+    .dh-guide-line.active { width: 200px; }
+
+    .dh-guide-arrow {
+      position: absolute;
+      top: 15%; right: 22%;
+      width: 24px; height: 24px;
+      opacity: 0;
+      transition: opacity 0.8s;
+      z-index: 8;
+    }
+
+    .dh-guide-arrow.visible { opacity: 1; }
+
+    .dh-guide-arrow::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-right: 2px solid rgba(230,54,34,0.5);
+      border-top: 2px solid rgba(230,54,34,0.5);
+      transform: rotate(45deg);
+      animation: arrowPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes arrowPulse {
+      0%, 100% { opacity: 1; transform: rotate(45deg) translate(0, 0); }
+      50% { opacity: 0.5; transform: rotate(45deg) translate(3px, -3px); }
+    }
+
+    /* Caption */
+    .dh-caption {
+      position: absolute; bottom: 48px; left: 0; right: 0;
+      text-align: center; z-index: 10;
+    }
+
+    .dh-caption h2 {
+      font-size: clamp(24px, 3.5vw, 42px);
+      font-weight: 800; letter-spacing: -1px;
+      color: #fff; margin-bottom: 8px;
+    }
+
+    .dh-caption p {
+      font-size: 13px; color: rgba(255,255,255,0.35);
+      letter-spacing: 0.06em; text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* Ambient glows for datahall */
+    .dh-glow {
+      position: absolute; border-radius: 50%;
+      filter: blur(40px); pointer-events: none;
+      contain: strict;
+    }
+
+    .dh-glow-1 { width: 400px; height: 400px; background: rgba(56,217,169,0.07); top: 10%; left: 20%; animation: glowFloat 10s ease-in-out infinite; }
+    .dh-glow-2 { width: 300px; height: 300px; background: rgba(230,54,34,0.06); bottom: 20%; right: 15%; animation: glowFloat 12s ease-in-out infinite reverse; }
+    .dh-glow-3 { width: 250px; height: 250px; background: rgba(230,54,34,0.04); top: 40%; left: 50%; animation: glowFloat 14s ease-in-out infinite 3s; }
+
+    @media (max-width: 768px) {
+      .dh-aisle { height: 360px; }
+      .dh-label, .dh-hud-panel, .dh-scan-data { display: none; }
+      .dh-rack { width: 40px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dh-scan-beam, .dh-guide-arrow::before { animation: none !important; }
+    }
+
+    /* ─── TEAM SECTION ───────────────────────────────────── */
+    .team-section {
+      position: relative; z-index: 1;
+      padding: 120px 48px;
+      background: var(--bg-2);
+      color: var(--text);
+      overflow: hidden;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 600px;
+    }
+
+    .team-inner {
+      max-width: 1100px; margin: 0 auto;
+    }
+
+    .team-label {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--text-muted); margin-bottom: 24px;
+    }
+
+    .team-title {
+      font-size: clamp(40px, 5vw, 64px);
+      font-weight: 800; letter-spacing: -2px;
+      line-height: 1.0; color: var(--text);
+      margin-bottom: 64px;
+    }
+
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: rgba(10,22,40,0.06);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .team-member {
+      padding: 32px;
+      background: var(--bg-2);
+      transition: background 0.3s, transform 0.4s cubic-bezier(.16,1,.3,1), box-shadow 0.4s;
+    }
+
+    .team-member:hover {
+      background: rgba(10,47,107,0.03);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 40px rgba(10,22,40,0.08);
+    }
+
+    .member-avatar {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 800;
+      color: white; margin-bottom: 16px;
+      transition: transform 0.4s cubic-bezier(.16,1,.3,1), box-shadow 0.4s;
+    }
+
+    .team-member:hover .member-avatar {
+      transform: scale(1.1);
+      box-shadow: 0 0 20px rgba(10,47,107,0.2);
+    }
+
+    .member-name {
+      font-size: 17px; font-weight: 700;
+      color: var(--text); margin-bottom: 4px;
+    }
+
+    .member-role {
+      font-size: 12px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .member-role.highlight {
+      color: var(--accent);
+    }
+
+    /* ─── PREREQUISITES / BOM ───────────────────────────── */
+    .prereqs-section {
+      position: relative; z-index: 1;
+      padding: 120px 48px;
+      background: var(--bg-dark);
+      content-visibility: auto;
+      contain-intrinsic-size: auto 1200px;
+    }
+
+    .prereqs-grid {
+      margin-top: 64px;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .prereq-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      transition: border-color 0.3s, transform 0.4s cubic-bezier(.16,1,.3,1), box-shadow 0.4s cubic-bezier(.16,1,.3,1);
+      cursor: none;
+    }
+
+    .prereq-card:hover {
+      border-color: var(--border-hi);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(10,47,107,0.08);
+    }
+
+    /* Prereq card stagger */
+    .prereq-card.reveal.in .prereq-icon {
+      animation: iconPop 0.5s 0.2s cubic-bezier(.16,1,.3,1) both;
+    }
+
+    @keyframes iconPop {
+      0% { transform: scale(0.6) rotate(-8deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .prereq-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: rgba(10,47,107,0.06);
+      border: 1px solid rgba(10,47,107,0.12);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      margin-bottom: 20px;
+      transition: transform 0.4s cubic-bezier(.16,1,.3,1), background 0.3s;
+    }
+
+    .prereq-card:hover .prereq-icon {
+      transform: scale(1.08) translateY(-2px);
+      background: rgba(10,47,107,0.1);
+    }
+
+    .prereq-name {
+      font-size: 20px; font-weight: 800;
+      letter-spacing: -0.3px;
+      margin-bottom: 8px;
+    }
+
+    .prereq-desc {
+      font-size: 14px; line-height: 1.6;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .prereq-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 16px;
+      border-top: 1px solid rgba(10,22,40,0.06);
+    }
+
+    .prereq-price {
+      font-size: 22px; font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+
+    .prereq-source {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 5px 12px; border-radius: 100px;
+      border: 1px solid rgba(10,22,40,0.1);
+    }
+
+    .prereq-card--wide {
+      grid-column: 1 / -1;
+    }
+
+    .compare-toggle {
+      display: flex; gap: 4px;
+      background: rgba(10,22,40,0.04);
+      border-radius: 10px;
+      padding: 4px;
+      margin: 20px 0 0;
+      width: fit-content;
+    }
+
+    .compare-btn {
+      background: none; border: none;
+      color: var(--text-muted);
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      padding: 8px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .compare-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .compare-panel {
+      display: none;
+      margin-top: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .compare-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .compare-table tr {
+      border-bottom: 1px solid rgba(10,22,40,0.05);
+    }
+
+    .compare-table td {
+      padding: 10px 0;
+      font-size: 14px;
+      color: var(--text-muted);
+      vertical-align: top;
+    }
+
+    .compare-label {
+      font-weight: 700;
+      color: var(--text);
+      width: 120px;
+      white-space: nowrap;
+      padding-right: 24px;
+    }
+
+    .compare-verdict {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: rgba(10,47,107,0.05);
+      border: 1px solid rgba(10,47,107,0.1);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .compare-verdict--dim {
+      background: rgba(10,22,40,0.03);
+      border-color: rgba(10,22,40,0.06);
+      color: var(--text-muted);
+    }
+
+    /* ─── GPU 3D Pipeline ─────────────────────────────────── */
+    .gpu-pipeline {
+      padding: 100px 32px 0;
+      position: relative;
+    }
+
+    /* Pipeline entrance — nodes stagger in */
+    .gpu-node {
+      opacity: 0;
+      transform: translateY(24px) scale(0.92);
+      transition: opacity 0.8s cubic-bezier(.16,1,.3,1), transform 0.8s cubic-bezier(.16,1,.3,1);
+    }
+
+    .gpu-flow {
+      opacity: 0;
+      transition: opacity 0.6s cubic-bezier(.16,1,.3,1) 0.3s;
+    }
+
+    .gpu-pipeline.gpu-entered .gpu-node {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .gpu-pipeline.gpu-entered .gpu-flow {
+      opacity: 1;
+    }
+
+    .gpu-pipeline.gpu-entered .gpu-node--macbook { transition-delay: 0.1s; }
+    .gpu-pipeline.gpu-entered .gpu-flow--1 { transition-delay: 0.35s; }
+    .gpu-pipeline.gpu-entered .gpu-node--cloud { transition-delay: 0.55s; }
+    .gpu-pipeline.gpu-entered .gpu-flow--2 { transition-delay: 0.75s; }
+    .gpu-pipeline.gpu-entered .gpu-node--inference { transition-delay: 0.95s; }
+
+    /* Stats bar entrance */
+    .gpu-stats {
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.6s cubic-bezier(.16,1,.3,1) 1.2s, transform 0.6s cubic-bezier(.16,1,.3,1) 1.2s;
+    }
+
+    .gpu-pipeline.gpu-entered .gpu-stats {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .gpu-scene {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      perspective: 1200px;
+      position: relative;
+      min-height: 320px;
+    }
+
+    /* Nodes */
+    .gpu-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+      flex: 0 0 auto;
+    }
+
+    .gpu-device {
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform-style: preserve-3d;
+    }
+
+    .gpu-label {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      margin-top: 16px;
+      letter-spacing: -0.01em;
+    }
+
+    .gpu-sublabel {
+      font-size: 11px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    .gpu-tag {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+
+    .gpu-tag--green {
+      background: rgba(34,197,94,0.15);
+      color: #22c55e;
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+
+    .gpu-tag--blue {
+      background: rgba(59,130,246,0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59,130,246,0.25);
+    }
+
+    /* 3D Laptop */
+    .gpu-laptop {
+      width: 100px;
+      height: 70px;
+      position: relative;
+      transform: rotateX(15deg) rotateY(-8deg);
+      transform-style: preserve-3d;
+      animation: gpuFloat 4s ease-in-out infinite;
+    }
+
+    .gpu-laptop--running {
+      animation: gpuFloat 4s ease-in-out infinite, gpuPulseGreen 2s ease-in-out infinite;
+    }
+
+    @keyframes gpuFloat {
+      0%, 100% { transform: rotateX(15deg) rotateY(-8deg) translateY(0); }
+      50% { transform: rotateX(15deg) rotateY(-8deg) translateY(-6px); }
+    }
+
+    @keyframes gpuPulseGreen {
+      0%, 100% { filter: drop-shadow(0 0 8px rgba(34,197,94,0)); }
+      50% { filter: drop-shadow(0 0 16px rgba(34,197,94,0.4)); }
+    }
+
+    .gpu-laptop-screen {
+      width: 100%;
+      height: 58px;
+      background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+      border-radius: 6px 6px 0 0;
+      border: 1px solid rgba(255,255,255,0.08);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 0 30px rgba(59,130,246,0.1);
+    }
+
+    .gpu-screen-content {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .gpu-terminal-line {
+      height: 3px;
+      background: rgba(34,197,94,0.5);
+      border-radius: 2px;
+      animation: termType 2s ease-in-out infinite;
+    }
+
+    @keyframes termType {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.8; }
+    }
+
+    .gpu-screen-content--running {
+      padding: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Mini arm animation inside laptop screen */
+    .gpu-arm-visual {
+      width: 40px;
+      height: 40px;
+      position: relative;
+    }
+
+    .gpu-arm-seg {
+      position: absolute;
+      background: rgba(34,197,94,0.7);
+      border-radius: 2px;
+    }
+
+    .gpu-arm-seg--1 {
+      width: 3px;
+      height: 20px;
+      bottom: 0;
+      left: 18px;
+      transform-origin: bottom center;
+      animation: armSeg1 3s ease-in-out infinite;
+    }
+
+    .gpu-arm-seg--2 {
+      width: 3px;
+      height: 14px;
+      bottom: 18px;
+      left: 18px;
+      transform-origin: bottom center;
+      animation: armSeg2 3s ease-in-out infinite;
+    }
+
+    .gpu-arm-seg--3 {
+      width: 8px;
+      height: 3px;
+      bottom: 30px;
+      left: 14px;
+      border-radius: 1px;
+      animation: armSeg3 3s ease-in-out infinite;
+    }
+
+    @keyframes armSeg1 {
+      0%, 100% { transform: rotate(-10deg); }
+      50% { transform: rotate(10deg); }
+    }
+
+    @keyframes armSeg2 {
+      0%, 100% { transform: rotate(15deg); }
+      50% { transform: rotate(-15deg); }
+    }
+
+    @keyframes armSeg3 {
+      0%, 100% { transform: translateX(-2px); }
+      50% { transform: translateX(4px); }
+    }
+
+    .gpu-laptop-base {
+      width: 110%;
+      height: 6px;
+      background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
+      border-radius: 0 0 4px 4px;
+      margin-left: -5%;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-top: none;
+    }
+
+    /* 3D Server */
+    .gpu-server {
+      width: 90px;
+      height: 100px;
+      position: relative;
+      transform: rotateX(12deg) rotateY(5deg);
+      transform-style: preserve-3d;
+      animation: gpuFloat 4.5s ease-in-out infinite;
+      animation-delay: -1s;
+    }
+
+    .gpu-server-rack {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border-radius: 6px;
+      border: 1px solid rgba(59,130,246,0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .gpu-server-unit {
+      flex: 1;
+      background: rgba(0,0,0,0.3);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 8px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .gpu-server-led {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .gpu-server-led--active {
+      background: #3b82f6;
+      box-shadow: 0 0 6px rgba(59,130,246,0.6);
+      animation: ledBlink 1.5s ease-in-out infinite;
+    }
+
+    @keyframes ledBlink {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .gpu-glow-ring {
+      position: absolute;
+      inset: -15px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+      animation: glowPulse 3s ease-in-out infinite;
+      z-index: 1;
+    }
+
+    @keyframes glowPulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.5; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
+
+    /* Flow connectors */
+    .gpu-flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .gpu-flow-track {
+      width: 100%;
+      height: 3px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .gpu-particle {
+      position: absolute;
+      width: 16px;
+      height: 3px;
+      border-radius: 2px;
+      top: 0;
+    }
+
+    .gpu-particle--up {
+      background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+      animation: flowRight 1.8s linear infinite;
+    }
+
+    .gpu-particle--down {
+      background: linear-gradient(90deg, transparent, #22c55e, transparent);
+      animation: flowRight 1.8s linear infinite;
+    }
+
+    @keyframes flowRight {
+      0% { left: -16px; }
+      100% { left: 100%; }
+    }
+
+    .gpu-flow-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.25);
+      margin-top: 8px;
+      white-space: nowrap;
+    }
+
+    /* Bottom stats */
+    .gpu-stats {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 20px 32px 28px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      margin-top: 24px;
+    }
+
+    .gpu-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .gpu-stat-val {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.02em;
+    }
+
+    .gpu-stat-unit {
+      font-size: 10px;
+      color: rgba(255,255,255,0.3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .gpu-stat-sep {
+      width: 1px;
+      height: 28px;
+      background: rgba(255,255,255,0.06);
+    }
+
+    /* Responsive */
+    @media (max-width: 700px) {
+      .gpu-scene {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .gpu-flow {
+        width: 3px;
+        height: 50px;
+      }
+      .gpu-flow-track {
+        width: 3px;
+        height: 100%;
+      }
+      .gpu-particle {
+        width: 3px;
+        height: 16px;
+        left: 0;
+      }
+      .gpu-particle--up, .gpu-particle--down {
+        animation-name: flowDown;
+      }
+      @keyframes flowDown {
+        0% { top: -16px; }
+        100% { top: 100%; }
+      }
+      .gpu-stats {
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+    }
+
+    .prereq-total {
+      margin-top: 48px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 32px 0;
+      border-top: 1px solid rgba(10,22,40,0.08);
+    }
+
+    .prereq-total-label {
+      font-size: 14px; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .prereq-total-price {
+      font-size: 36px; font-weight: 800;
+      color: var(--text);
+      letter-spacing: -1px;
+    }
+
+    .prereq-total-note {
+      font-size: 13px; color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* ─── TIMELINE SECTION ───────────────────────────────── */
+    .timeline-section {
+      position: relative; z-index: 1;
+      padding: 120px 48px;
+      background: var(--bg);
+      content-visibility: auto;
+      contain-intrinsic-size: auto 800px;
+    }
+
+    .timeline-list { margin-top: 64px; }
+
+    .timeline-row {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 28px 0;
+      border-bottom: 1px solid rgba(10,22,40,0.06);
+      cursor: none; position: relative;
+      transition: padding-left 0.4s cubic-bezier(.16,1,.3,1);
+      overflow: hidden;
+    }
+
+    .timeline-row::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 0;
+      background: var(--accent);
+      transition: width 0.4s cubic-bezier(.16,1,.3,1);
+      border-radius: 0 4px 4px 0;
+    }
+
+    .timeline-row:hover { padding-left: 24px; }
+    .timeline-row:hover::before { width: 4px; }
+
+    .timeline-left { display: flex; align-items: center; gap: 32px; }
+
+    .timeline-day {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.12em; color: var(--text-muted);
+      width: 80px;
+    }
+
+    .timeline-task {
+      font-size: clamp(20px, 2.5vw, 32px);
+      font-weight: 800; letter-spacing: -0.5px;
+      color: var(--text);
+      transition: color 0.3s;
+    }
+
+    .timeline-row:hover .timeline-task { color: var(--accent); }
+
+    .timeline-who {
+      font-size: 12px; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 5px 14px; border-radius: 100px;
+      border: 1px solid rgba(10,22,40,0.1);
+      color: var(--text-muted);
+      transition: border-color 0.3s, color 0.3s;
+    }
+
+    .timeline-row:hover .timeline-who {
+      border-color: rgba(10,47,107,0.3);
+      color: var(--accent);
+    }
+
+    /* ─── STATS ──────────────────────────────────────────── */
+    .counter-section {
+      position: relative; z-index: 1;
+      padding: 80px 48px;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px; background: rgba(10,22,40,0.04);
+      border-top: 1px solid rgba(10,22,40,0.06);
+      border-bottom: 1px solid rgba(10,22,40,0.06);
+    }
+
+    .counter-item {
+      padding: 48px;
+      background: var(--bg);
+      text-align: center;
+      transition: background 0.4s, box-shadow 0.4s, transform 0.4s cubic-bezier(.16,1,.3,1);
+      position: relative;
+    }
+
+    .counter-item::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .counter-item:hover {
+      transform: translateY(-3px);
+      background: rgba(10,47,107,0.03);
+      box-shadow: 0 8px 32px rgba(10,47,107,0.06), 0 -4px 40px rgba(10,47,107,0.04) inset;
+    }
+
+    .counter-item:hover::before { opacity: 1; }
+
+    .counter-num {
+      font-size: clamp(40px, 5vw, 64px);
+      font-weight: 800; letter-spacing: -2px;
+      color: var(--text); display: block;
+      line-height: 1;
+    }
+
+    .counter-label {
+      font-size: 12px; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--text-muted); margin-top: 12px; display: block;
+    }
+
+    /* ─── CTA ─────────────────────────────────────────────── */
+    .cta-section {
+      position: relative; z-index: 1;
+      padding: 160px 48px;
+      text-align: center; overflow: hidden;
+      background: var(--bg);
+    }
+
+    .cta-bg-text {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: clamp(120px, 22vw, 350px);
+      font-weight: 800; letter-spacing: -8px;
+      color: rgba(10,22,40,0.04);
+      user-select: none; pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px; height: 500px;
+      background: radial-gradient(ellipse, rgba(10,47,107,0.05) 0%, transparent 60%);
+      pointer-events: none;
+      animation: ctaGlow 5s ease-in-out infinite;
+    }
+
+    @keyframes ctaGlow {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    .cta-title {
+      font-size: clamp(48px, 7vw, 100px);
+      font-weight: 800; letter-spacing: -3px;
+      line-height: 1.0; color: var(--text);
+      margin-bottom: 24px; position: relative;
+    }
+
+    .cta-sub {
+      font-size: 18px; color: var(--text-muted);
+      line-height: 1.6; margin-bottom: 40px;
+      position: relative;
+    }
+
+    .btn-magnetic {
+      position: relative; display: inline-block; cursor: none;
+    }
+
+    .btn-magnetic-inner {
+      display: inline-flex; align-items: center; gap: 12px;
+      font-size: 15px; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      padding: 20px 44px; border-radius: 100px;
+      background: var(--accent); color: #fff;
+      transition: background 0.3s, transform 0.2s, box-shadow 0.3s;
+      position: relative; overflow: hidden;
+      box-shadow: 0 4px 20px rgba(10,47,107,0.25);
+    }
+
+    .btn-magnetic-inner::before {
+      content: '';
+      position: absolute; inset: 0; border-radius: 100px;
+      background: var(--accent-2);
+      transform: scaleX(0); transform-origin: left;
+      transition: transform 0.4s cubic-bezier(.16,1,.3,1);
+    }
+
+    .btn-magnetic-inner:hover::before { transform: scaleX(1); }
+    .btn-magnetic-inner span { position: relative; z-index: 1; }
+
+    /* ─── FOOTER ──────────────────────────────────────────── */
+    footer {
+      position: relative; z-index: 1;
+      padding: 48px;
+      background: #0a1628; color: #f0f1f7;
+      display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; gap: 24px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .footer-logo {
+      font-size: 20px; font-weight: 800;
+      letter-spacing: -0.5px; color: #f0f1f7;
+      text-decoration: none; cursor: none;
+      transition: color 0.2s;
+    }
+
+    .footer-logo:hover { color: #6ba3e8; }
+
+    .footer-center {
+      font-size: 12px; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: #7a8ba5; text-align: center;
+    }
+
+    .footer-right {
+      display: flex; gap: 28px; justify-content: flex-end;
+    }
+
+    .footer-right a {
+      font-size: 13px; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: #7a8ba5; text-decoration: none;
+      cursor: none; transition: color 0.2s;
+      position: relative;
+    }
+
+    .footer-right a::after {
+      content: '';
+      position: absolute; bottom: -2px; left: 0;
+      width: 0; height: 1px;
+      background: #6ba3e8;
+      transition: width 0.35s cubic-bezier(.16,1,.3,1);
+    }
+
+    .footer-right a:hover { color: #6ba3e8; }
+    .footer-right a:hover::after { width: 100%; }
+
+    /* ─── Scroll reveal ───────────────────────────────────── */
+    .reveal {
+      opacity: 0; transform: translateY(50px) scale(0.97);
+      transition: opacity 1s cubic-bezier(.16,1,.3,1),
+                  transform 1s cubic-bezier(.16,1,.3,1);
+    }
+    .reveal.in { opacity: 1; transform: translateY(0) scale(1); }
+    .reveal-d1 { transition-delay: 0.12s; }
+    .reveal-d2 { transition-delay: 0.24s; }
+    .reveal-d3 { transition-delay: 0.36s; }
+    .reveal-d4 { transition-delay: 0.48s; }
+    .reveal-d5 { transition-delay: 0.60s; }
+    .reveal-d6 { transition-delay: 0.72s; }
+
+    /* ─── Page load curtain ───────────────────────────────── */
+    #curtain {
+      position: fixed; inset: 0;
+      background: #ffffff;
+      z-index: 9995; pointer-events: none;
+      transform-origin: top;
+    }
+    #curtain.away {
+      animation: curtainUp 1.1s 0.1s cubic-bezier(.76,0,.24,1) forwards;
+    }
+    @keyframes curtainUp {
+      from { transform: scaleY(1); }
+      to   { transform: scaleY(0); transform-origin: top; }
+    }
+
+    /* ─── Scroll progress ─────────────────────────────────── */
+    #scroll-progress {
+      position: fixed; top: 0; left: 0;
+      height: 2px; width: 0%;
+      background: var(--accent);
+      z-index: 9994; pointer-events: none;
+    }
+
+    /* ─── Cursor trail ────────────────────────────────────── */
+    .c-trail {
+      position: fixed; border-radius: 50%;
+      background: var(--accent-2); pointer-events: none;
+      z-index: 9997; transform: translate(-50%,-50%);
+      opacity: 0;
+    }
+
+    /* Removed permanent will-change — only set during scroll via JS if needed */
+
+    /* ─── Section edge blends ────────────────────────────── */
+    .showcase::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 120px;
+      background: linear-gradient(180deg, #ffffff 0%, transparent 100%);
+      z-index: 2; pointer-events: none;
+    }
+
+    .showcase::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+      background: linear-gradient(0deg, #ffffff 0%, transparent 100%);
+      z-index: 2; pointer-events: none;
+    }
+
+    .datahall::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 100px;
+      background: linear-gradient(180deg, #ffffff 0%, transparent 100%);
+      z-index: 2; pointer-events: none;
+    }
+
+    .team-section::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 80px;
+      background: linear-gradient(180deg, #f4f6fa 0%, transparent 100%);
+      z-index: 2; pointer-events: none;
+    }
+
+    /* ─── Nav scroll state ────────────────────────────────── */
+    nav {
+      transition: background 0.3s, backdrop-filter 0.3s;
+    }
+
+    nav.scrolled {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(10,22,40,0.06);
+      box-shadow: 0 1px 12px rgba(10,22,40,0.04);
+    }
+
+    /* ─── Timeline stagger (CSS) ──────────────────────────── */
+    .timeline-row { --row-i: 0; }
+    .timeline-row.reveal {
+      transition-delay: calc(var(--row-i) * 80ms);
+    }
+
+    /* ─── Nav link active indicator ─────────────────────── */
+    .nav-link::after {
+      content: '';
+      position: absolute; bottom: -2px; left: 0;
+      width: 0; height: 1.5px;
+      background: var(--accent-2);
+      transition: width 0.35s cubic-bezier(.16,1,.3,1);
+    }
+    .nav-link:hover::after { width: 100%; }
+
+    /* ─── Counter section hover ripple ───────────────────── */
+    .counter-item::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(10,47,107,0.06) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.4s;
+      pointer-events: none;
+    }
+    .counter-item:hover::after { opacity: 1; }
+
+    /* ─── Reduced motion (global) ─────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .reveal-sc { transition-duration: 0.01ms !important; }
+      .robot-card, .team-member, .member-avatar, .spec-tag { transition-duration: 0.01ms !important; }
+      .dh-robot { animation: none !important; }
+      .marquee-track { animation: none !important; }
+      .scroll-line, .nav-logo-dot { animation: none !important; }
+      .hero-title .line span { animation: none !important; transform: none !important; }
+      .hero-eyebrow, .hero-desc, .hero-scroll { animation: none !important; opacity: 1 !important; transform: none !important; }
+      .gpu-node, .gpu-flow, .gpu-stats { transition-duration: 0.01ms !important; opacity: 1 !important; transform: none !important; }
+      .gpu-laptop, .gpu-server { animation: none !important; }
+      .gpu-particle--up, .gpu-particle--down { animation: none !important; }
+      .gpu-server-led--active { animation: none !important; }
+      .gpu-glow-ring { animation: none !important; }
+      .gpu-terminal-line { animation: none !important; opacity: 0.5 !important; }
+      .gpu-arm-seg { animation: none !important; }
+      .counter-item { transition-duration: 0.01ms !important; }
+    }
+
+    /* ─── Responsive ──────────────────────────────────────── */
+    @media (max-width: 768px) {
+      nav { padding: 0 24px; }
+      .nav-right { gap: 20px; }
+      .hero { padding: 0 24px calc(var(--nav-h) + 24px); }
+      .hero-bottom { flex-direction: column; align-items: flex-start; }
+      .robots-section, .timeline-section, .prereqs-section { padding: 80px 24px; }
+      .robots-grid { grid-template-columns: 1fr; }
+      .team-grid { grid-template-columns: 1fr 1fr; }
+      .counter-section { grid-template-columns: 1fr 1fr; }
+      .timeline-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .cta-section { padding: 100px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Page load curtain -->
+  <div id="curtain"></div>
+
+  <!-- Scroll progress -->
+  <div id="scroll-progress"></div>
+
+  <!-- Cursor trails -->
+  <div class="c-trail" id="tr0"></div>
+  <div class="c-trail" id="tr1"></div>
+  <div class="c-trail" id="tr2"></div>
+  <div class="c-trail" id="tr3"></div>
+  <div class="c-trail" id="tr4"></div>
+
+  <!-- Canvas background -->
+  <canvas id="canvas-bg"></canvas>
+
+  <!-- Cursor -->
+  <div id="c-dot"></div>
+  <div id="c-ring"></div>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-dot"></div>
+      FloorCrew
+    </a>
+    <div class="nav-right">
+      <a href="#showcase" class="nav-link"><span>Demo</span><span>Demo</span></a>
+      <a href="#robots" class="nav-link"><span>Robots</span><span>Robots</span></a>
+      <!-- <a href="#team" class="nav-link"><span>Team</span><span>Team</span></a> -->
+      <a href="#prereqs" class="nav-link"><span>Parts</span><span>Parts</span></a>
+      <a href="#timeline" class="nav-link"><span>Timeline</span><span>Timeline</span></a>
+      <a href="#" class="nav-cta">Hackathon 2026</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <p class="hero-eyebrow">CoreWeave Hackathon — March 23, 2026 — Team Hub</p>
+    <h1 class="hero-title">
+      <span class="line"><span>This is</span></span>
+      <span class="line"><span>what we're</span></span>
+      <span class="line"><span><em class="accent" style="font-style:italic; font-weight:300;">building.</em></span></span>
+    </h1>
+    <div class="hero-bottom">
+      <p class="hero-desc">
+        Our hackathon project. Two robots built by DCTs — an arm that seats optics and a bot that escorts and scans racks. Everything on this page is the plan. Let's make it real.
+      </p>
+      <div class="hero-scroll">
+        <div class="scroll-line"></div>
+        <span class="scroll-label">Scroll</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MARQUEE -->
+  <div class="marquee-section">
+    <div class="marquee-track">
+      <div class="marquee-item">Robotics</div>
+      <div class="marquee-item">SO-ARM101</div>
+      <div class="marquee-item">Optics Install</div>
+      <div class="marquee-item">Escort Bot</div>
+      <div class="marquee-item">DC Floor</div>
+      <div class="marquee-item">More Better Faster</div>
+      <div class="marquee-item">Robotics</div>
+      <div class="marquee-item">SO-ARM101</div>
+      <div class="marquee-item">Optics Install</div>
+      <div class="marquee-item">Escort Bot</div>
+      <div class="marquee-item">DC Floor</div>
+      <div class="marquee-item">More Better Faster</div>
+    </div>
+  </div>
+
+  <!-- 3D SHOWCASE -->
+  <section class="showcase" id="showcase">
+    <!-- Scene background glow -->
+    <div class="scene-glow"></div>
+    <!-- Corner brackets -->
+    <div class="sc-bracket sc-bracket-tl"></div>
+    <div class="sc-bracket sc-bracket-tr"></div>
+    <div class="sc-bracket sc-bracket-bl"></div>
+    <div class="sc-bracket sc-bracket-br"></div>
+
+    <!-- Status -->
+    <div class="sc-status">
+      <div class="sc-status-dot"></div>
+      <span class="sc-status-text">System Active</span>
+    </div>
+
+    <!-- Label -->
+    <div class="showcase-label">Precision Assembly Demo</div>
+
+    <!-- HUD -->
+    <div class="sc-hud sc-hud-tl">
+      <div class="sc-hud-line">ARM STATUS <span class="sc-hud-val" id="hud-status">READY</span></div>
+      <div class="sc-hud-line">TORQUE <span class="sc-hud-val" id="hud-torque">19.5 kg/cm</span></div>
+      <div class="sc-hud-line">ACCURACY <span class="sc-hud-val" id="hud-acc">±0.8mm</span></div>
+    </div>
+
+    <div class="sc-hud sc-hud-br">
+      <div class="sc-hud-line">TARGET <span class="sc-hud-val">PORT 04</span></div>
+      <div class="sc-hud-line">OPTIC <span class="sc-hud-val">QSFP28-100G</span></div>
+      <div class="sc-hud-line">CYCLE <span class="sc-hud-val" id="hud-cycle">001</span></div>
+    </div>
+
+    <!-- Glows -->
+    <div class="sc-glow sc-glow-1"></div>
+    <div class="sc-glow sc-glow-2"></div>
+    <div class="sc-glow sc-glow-3"></div>
+
+    <!-- Scene -->
+    <div class="sc-scene reveal-sc" id="sc-scene">
+      <div class="sc-camera" id="sc-camera">
+
+        <!-- Floor grid -->
+        <div class="sc-floor"></div>
+        <div class="sc-scanline"></div>
+
+        <!-- Switch device -->
+        <div class="sc-switch" id="sc-switch">
+          <div class="switch-ports">
+            <div class="switch-port filled"><div class="port-led"></div></div>
+            <div class="switch-port filled"><div class="port-led"></div></div>
+            <div class="switch-port filled"><div class="port-led"></div></div>
+            <div class="switch-port target" id="target-port"><div class="port-led"></div></div>
+            <div class="switch-port"><div class="port-led"></div></div>
+            <div class="switch-port"><div class="port-led"></div></div>
+          </div>
+          <div class="switch-label">QSFP28 — Row 12 / Cab A4</div>
+        </div>
+
+        <!-- Optic pickup tray -->
+        <div class="sc-tray" id="sc-tray">
+          <div class="sc-tray-optic" id="sc-tray-optic"></div>
+          <div class="sc-tray-label">OPTIC TRAY — QSFP28</div>
+        </div>
+
+        <!-- Spotlight cone -->
+        <div class="arm-spotlight"></div>
+
+        <!-- Arm shadow on floor -->
+        <div class="arm-shadow" id="arm-shadow"></div>
+
+        <!-- Alignment lasers -->
+        <div class="sc-laser" id="sc-laser-h"></div>
+        <div class="sc-laser sc-laser-v" id="sc-laser-v"></div>
+
+        <!-- Robot arm -->
+        <div class="arm-base" id="arm-base">
+          <div class="arm-base-plate">
+            <div class="base-bolt base-bolt-l"></div>
+            <div class="base-bolt base-bolt-r"></div>
+          </div>
+
+          <!-- Segment 1: lower arm -->
+          <div class="arm-seg arm-s1" id="arm-s1">
+            <div class="arm-seg-body">
+              <div class="arm-servo-housing"></div>
+              <div class="arm-cable"></div>
+            </div>
+            <div class="arm-joint"></div>
+
+            <!-- Segment 2: upper arm -->
+            <div class="arm-seg arm-s2" id="arm-s2">
+              <div class="arm-seg-body">
+                <div class="arm-servo-housing"></div>
+                <div class="arm-cable"></div>
+              </div>
+              <div class="arm-joint"></div>
+
+              <!-- Segment 3: forearm -->
+              <div class="arm-seg arm-s3" id="arm-s3">
+                <div class="arm-seg-body">
+                  <div class="arm-cable"></div>
+                </div>
+                <div class="arm-joint"></div>
+
+                <!-- Gripper — precision QSFP clamp -->
+                <div class="arm-gripper" id="arm-gripper">
+                  <div class="gripper-mount"></div>
+                  <div class="gripper-finger gripper-l" id="grip-l"><div class="gripper-servo"></div></div>
+                  <div class="gripper-finger gripper-r" id="grip-r"><div class="gripper-servo"></div></div>
+                  <!-- Optic held between fingers -->
+                  <div class="sc-optic gripper-optic" id="sc-optic">
+                    <div class="sc-optic-glow" id="optic-glow"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Flash effect -->
+        <div class="sc-flash" id="sc-flash"></div>
+
+        <!-- Bloom -->
+        <div class="sc-bloom" id="sc-bloom"></div>
+
+      </div>
+    </div>
+
+    <!-- Particles -->
+    <div class="sc-particles" id="sc-particles"></div>
+
+    <!-- Caption -->
+    <div class="showcase-caption reveal-sc">
+      <h2>Precision at the rack.</h2>
+      <p>SO-ARM101 — Optic Installation Sequence</p>
+      <p style="max-width:520px; margin:16px auto 0; font-size:13px; color:rgba(255,255,255,0.3); line-height:1.7; text-transform:none; letter-spacing:0; font-weight:400;">What you're seeing: The robot arm picks up a fiber optic transceiver from a tray, carries it to the switch, and plugs it into the correct port. This is what DCTs do by hand hundreds of times. The arm does it autonomously.</p>
+    </div>
+  </section>
+
+  <!-- ROBOTS -->
+  <section class="robots-section" id="robots">
+    <div class="section-header reveal">
+      <div>
+        <div class="section-num">01 / The Crew</div>
+        <div class="section-title">Two robots,<br>one system</div>
+      </div>
+    </div>
+
+    <div class="robots-grid">
+      <div class="robot-card reveal reveal-d1">
+        <div class="robot-card-bg"></div>
+        <a href="https://github.com/TheRobotStudio/SO-ARM100" target="_blank" rel="noopener" style="position:absolute; top:20px; right:20px; z-index:2; cursor:none;">
+          <img src="so101-real.png" alt="SO-101 Arm — View Repo" style="width:180px; opacity:0.12; pointer-events:auto; filter:grayscale(0.3); transition:opacity 0.3s, filter 0.3s;" onmouseenter="this.style.opacity='0.35';this.style.filter='grayscale(0)'" onmouseleave="this.style.opacity='0.12';this.style.filter='grayscale(0.3)'" />
+        </a>
+        <div class="robot-card-num">01</div>
+        <div class="robot-card-badge">The Technician</div>
+        <h3>SO-ARM101</h3>
+        <p>6-axis robotic arm trained to install fiber optic transceivers. Learns by demonstration — a human shows it once, it repeats forever. Precision at the rack, 24/7.</p>
+        <div class="robot-specs">
+          <span class="spec-tag">6-DOF</span>
+          <span class="spec-tag">LeRobot</span>
+          <span class="spec-tag">Teleoperation</span>
+          <span class="spec-tag">STS3215 Servos</span>
+        </div>
+      </div>
+
+      <div class="robot-card reveal reveal-d2">
+        <div class="robot-card-num">02</div>
+        <div class="robot-card-badge">The Watcher</div>
+        <h3>Escort Bot</h3>
+        <p>Escorts vendors to the rack, scans every node to baseline health, then monitors while they work. Flags if an adjacent node gets touched or something changes. Logs the work, confirms nothing else was disturbed. Watches the rack, not the person — privacy-first.</p>
+        <div class="robot-specs">
+          <span class="spec-tag">Vendor Escort</span>
+          <span class="spec-tag">Rack Health Scan</span>
+          <span class="spec-tag">Boundary Monitor</span>
+          <span class="spec-tag">Auto-Logging</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLATFORM PICKER -->
+    <div class="platform-picker">
+      <div class="platform-picker-title">Escort Bot — Pick Your Platform</div>
+
+      <div class="platform-grid">
+
+        <!-- Option A: iRobot Create 3 -->
+        <div class="platform-card recommended reveal reveal-d1">
+          <div class="platform-name">iRobot Create 3</div>
+          <div class="platform-price">$80–300</div>
+          <div class="platform-desc">Purpose-built education robot. ROS2-native, round base navigates aisles, programmatic motor + sensor control out of the box. Pair with a phone or USB cam on top.</div>
+          <div class="platform-meta">
+            <div class="platform-row"><span class="platform-row-label">Difficulty</span><span class="platform-row-val green">Low</span></div>
+            <div class="platform-row"><span class="platform-row-label">Demo Quality</span><span class="platform-row-val green">High</span></div>
+            <div class="platform-row"><span class="platform-row-label">Time to Working</span><span class="platform-row-val green">~2 hours</span></div>
+            <div class="platform-row"><span class="platform-row-label">Risk</span><span class="platform-row-val green">Low</span></div>
+            <div class="platform-row"><span class="platform-row-label">Source</span><span class="platform-row-val">eBay (used) or iRobot.com</span></div>
+          </div>
+          <div class="platform-pros">
+            <strong>Why this wins:</strong> ROS2 means real navigation code, not RC hacks. Bump sensors, cliff detection, and odometry included. Looks professional on camera. Used ones on eBay for $80-120.
+          </div>
+          <div class="platform-vote">
+            <button class="platform-vote-btn" data-platform="create3" onclick="votePlatform(this)">Vote for this</button>
+          </div>
+        </div>
+
+        <!-- Option B: RC Chassis + Pi -->
+        <div class="platform-card easiest reveal reveal-d2">
+          <div class="platform-name">RC Chassis + Raspberry Pi</div>
+          <div class="platform-price">$40–60</div>
+          <div class="platform-desc">4WD Arduino robot chassis kit ($25) + Raspberry Pi ($35) + USB webcam. Write basic motor control in Python with GPIO. Full ownership of the stack.</div>
+          <div class="platform-meta">
+            <div class="platform-row"><span class="platform-row-label">Difficulty</span><span class="platform-row-val amber">Medium</span></div>
+            <div class="platform-row"><span class="platform-row-label">Demo Quality</span><span class="platform-row-val amber">Medium</span></div>
+            <div class="platform-row"><span class="platform-row-label">Time to Working</span><span class="platform-row-val amber">~6 hours</span></div>
+            <div class="platform-row"><span class="platform-row-label">Risk</span><span class="platform-row-val amber">Medium</span></div>
+            <div class="platform-row"><span class="platform-row-label">Source</span><span class="platform-row-val">Amazon (2-day shipping)</span></div>
+          </div>
+          <div class="platform-pros">
+            <strong>Why this works:</strong> Cheapest real option. You own every line of code. Scrappy but honest — judges respect that. If someone has a Pi lying around, cost drops to ~$25 for just the chassis.
+          </div>
+          <div class="platform-vote">
+            <button class="platform-vote-btn" data-platform="rcpi" onclick="votePlatform(this)">Vote for this</button>
+          </div>
+        </div>
+
+        <!-- Option C: Phone on Wheels -->
+        <div class="platform-card reveal reveal-d3">
+          <div class="platform-name">Phone-on-Wheels</div>
+          <div class="platform-price">$15–30</div>
+          <div class="platform-desc">Cheapest possible: RC car + old phone taped on top. Phone runs the camera + CV processing. Laptop sends motor commands via Bluetooth serial to an Arduino on the car.</div>
+          <div class="platform-meta">
+            <div class="platform-row"><span class="platform-row-label">Difficulty</span><span class="platform-row-val red">High</span></div>
+            <div class="platform-row"><span class="platform-row-label">Demo Quality</span><span class="platform-row-val red">Low</span></div>
+            <div class="platform-row"><span class="platform-row-label">Time to Working</span><span class="platform-row-val red">~10+ hours</span></div>
+            <div class="platform-row"><span class="platform-row-label">Risk</span><span class="platform-row-val red">High</span></div>
+            <div class="platform-row"><span class="platform-row-label">Source</span><span class="platform-row-val">Amazon / thrift store</span></div>
+          </div>
+          <div class="platform-pros">
+            <strong>The reality:</strong> Cheapest on paper but highest risk. Bluetooth serial is flaky, phone mount is janky, and the RC car motor control is undocumented. Only do this if budget is truly zero.
+          </div>
+          <div class="platform-vote">
+            <button class="platform-vote-btn" data-platform="phone" onclick="votePlatform(this)">Vote for this</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="platform-verdict reveal">
+        <p>
+          <strong>My recommendation:</strong> Go with the <strong>iRobot Create 3</strong> if anyone can find one used ($80-120 on eBay). It's the only option where navigation is solved — you focus on the scan logic, not motor wiring. If budget is tight, the <strong>RC Chassis + Pi</strong> is the honest play — $50, fully owned, shippable in a day. The phone-on-wheels is a last resort only.
+        </p>
+        <p style="margin-top: 12px;">
+          <strong>Key question for the team:</strong> Does anyone already own a Raspberry Pi, an old Roomba, or an RC car? That changes the math. Vote above and let's lock it.
+        </p>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- DATA HALL SHOWCASE -->
+  <section class="datahall" id="datahall">
+    <div class="dh-label">Vendor Escort & Rack Monitoring Demo</div>
+
+    <div class="dh-status">
+      <div class="dh-status-dot"></div>
+      <span class="dh-status-text" id="dh-mode">Escort Mode</span>
+    </div>
+
+    <!-- Ambient -->
+    <div class="dh-glow dh-glow-1"></div>
+    <div class="dh-glow dh-glow-2"></div>
+    <div class="dh-glow dh-glow-3"></div>
+
+    <!-- Scene -->
+    <div class="dh-aisle reveal-sc" id="dh-aisle">
+      <div class="dh-camera" id="dh-camera">
+
+        <div class="dh-haze"></div>
+        <div class="dh-floor"><div class="dh-floor-reflect"></div></div>
+
+        <!-- Left racks (near to far) -->
+        <div class="dh-rack dh-rack-l0">
+          <div class="dh-rack-led" style="top:30%"></div>
+          <div class="dh-rack-led" style="top:60%"></div>
+        </div>
+        <div class="dh-rack dh-rack-l1">
+          <div class="dh-rack-led" style="top:20%"></div>
+          <div class="dh-rack-led" style="top:40%"></div>
+          <div class="dh-rack-led amber" style="top:60%"></div>
+          <div class="dh-rack-label">CAB-A1</div>
+        </div>
+        <div class="dh-rack dh-rack-l2">
+          <div class="dh-rack-led" style="top:25%"></div>
+          <div class="dh-rack-led" style="top:50%"></div>
+          <div class="dh-rack-led" style="top:75%"></div>
+          <div class="dh-rack-label">CAB-A2</div>
+        </div>
+        <div class="dh-rack dh-rack-l3">
+          <div class="dh-rack-led" style="top:20%"></div>
+          <div class="dh-rack-led" style="top:45%"></div>
+          <div class="dh-rack-led red" style="top:70%"></div>
+          <div class="dh-rack-label">CAB-A3</div>
+        </div>
+        <div class="dh-rack dh-rack-l4">
+          <div class="dh-rack-led" style="top:20%"></div>
+          <div class="dh-rack-led" style="top:50%"></div>
+          <div class="dh-rack-led" style="top:80%"></div>
+          <div class="dh-rack-label">CAB-A4</div>
+        </div>
+
+        <!-- Right racks (near to far) -->
+        <div class="dh-rack dh-rack-r0">
+          <div class="dh-rack-led" style="top:35%"></div>
+          <div class="dh-rack-led" style="top:65%"></div>
+        </div>
+        <div class="dh-rack dh-rack-r1">
+          <div class="dh-rack-led" style="top:30%"></div>
+          <div class="dh-rack-led" style="top:55%"></div>
+          <div class="dh-rack-label">CAB-B1</div>
+        </div>
+        <div class="dh-rack dh-rack-r2">
+          <div class="dh-rack-led" style="top:20%"></div>
+          <div class="dh-rack-led amber" style="top:45%"></div>
+          <div class="dh-rack-led" style="top:70%"></div>
+          <div class="dh-rack-label">CAB-B2</div>
+        </div>
+        <div class="dh-rack dh-rack-r3 target" id="dh-target-rack">
+          <div class="dh-rack-door" id="dh-rack-door"><div class="dh-rack-door-handle"></div></div>
+          <div class="dh-rack-led" style="top:25%"></div>
+          <div class="dh-rack-led" style="top:50%"></div>
+          <div class="dh-rack-led" style="top:75%"></div>
+          <div class="dh-rack-label">CAB-B3</div>
+        </div>
+        <div class="dh-rack dh-rack-r4">
+          <div class="dh-rack-led" style="top:20%"></div>
+          <div class="dh-rack-led" style="top:55%"></div>
+          <div class="dh-rack-led" style="top:80%"></div>
+          <div class="dh-rack-label">CAB-B4</div>
+        </div>
+
+        <!-- DCT human figure -->
+        <div class="dh-human" id="dh-human">
+          <div class="dh-human-body">
+            <div class="dh-human-head"></div>
+            <div class="dh-human-torso">
+              <div class="dh-human-arm dh-human-arm-l" id="dh-arm-l"></div>
+              <div class="dh-human-arm dh-human-arm-r" id="dh-arm-r"></div>
+            </div>
+            <div class="dh-human-legs"></div>
+          </div>
+        </div>
+
+        <!-- Escort robot -->
+        <div class="dh-robot" id="dh-robot">
+          <div class="dh-robot-body">
+            <div class="dh-robot-eye"></div>
+          </div>
+          <div class="dh-robot-base">
+            <div class="dh-robot-wheel dh-robot-wheel-l"></div>
+            <div class="dh-robot-wheel dh-robot-wheel-r"></div>
+          </div>
+          <div class="dh-scan-beam" id="dh-scan"></div>
+        </div>
+
+        <!-- Laser vertical sweep -->
+        <div class="dh-laser-sweep" id="dh-laser"></div>
+
+        <!-- Scan data readouts -->
+        <div class="dh-scan-data" id="dh-scan-d1" style="right:18%; top:22%;">RU-26: HEALTHY — NO TOUCH</div>
+        <div class="dh-scan-data" id="dh-scan-d2" style="right:18%; top:32%;">RU-25: HEALTHY — NO TOUCH</div>
+        <div class="dh-scan-data" id="dh-scan-d3" style="right:18%; top:42%;">RU-24: VENDOR WORKING [AUTH]</div>
+        <div class="dh-scan-data" id="dh-scan-d4" style="right:18%; top:52%;">RU-23: HEALTHY — NO TOUCH</div>
+        <div class="dh-scan-data" id="dh-scan-d5" style="right:18%; top:62%;">RU-22: PSU AMBER — FLAGGED</div>
+
+        <!-- Guide line to target rack -->
+        <div class="dh-guide-line" id="dh-guide-line"></div>
+        <div class="dh-guide-arrow" id="dh-guide-arrow"></div>
+
+      </div>
+
+      <!-- Narration ticker -->
+      <div class="dh-narration" id="dh-narration">
+        <span class="dh-narration-dot" id="dh-narration-dot"></span>
+        <span id="dh-narration-text">Escorting vendor to assigned rack</span>
+      </div>
+    </div>
+
+    <!-- HUD panels -->
+    <div class="dh-hud-panel dh-hud-escort" id="dh-hud-escort">
+      <div class="dh-hud-title">Escort Status</div>
+      <div class="dh-hud-row">Vendor <span class="dh-hud-val">TechCo Field Eng.</span></div>
+      <div class="dh-hud-row">Ticket <span class="dh-hud-val">INC-40821</span></div>
+      <div class="dh-hud-row">Authorized <span class="dh-hud-val">CAB-B3 / RU-24 only</span></div>
+      <div class="dh-hud-row">ETA <span class="dh-hud-val" id="dh-eta">45s</span></div>
+    </div>
+
+    <div class="dh-hud-panel dh-hud-verify" id="dh-hud-verify">
+      <div class="dh-hud-title">Rack Scan — CAB-B3</div>
+      <div class="dh-hud-row">RU 40-34 <span class="dh-hud-ok">Healthy</span></div>
+      <div class="dh-hud-row">RU 33-28 <span class="dh-hud-ok">Healthy</span></div>
+      <div class="dh-hud-row">RU 27-24 <span class="dh-hud-warn" id="dh-scan-status">Scanning...</span></div>
+      <div class="dh-hud-row">RU 23-16 <span class="dh-hud-val">Pending</span></div>
+      <div class="dh-hud-row">RU 15-01 <span class="dh-hud-val">Pending</span></div>
+    </div>
+
+    <div class="dh-hud-panel dh-hud-log" id="dh-hud-log">
+      <div class="dh-hud-title">Activity Log</div>
+      <div class="dh-hud-row">14:32 <span class="dh-hud-val">Escorting vendor to CAB-B3</span></div>
+      <div class="dh-hud-row">14:33 <span class="dh-hud-val">Arrived — scanning rack health</span></div>
+      <div class="dh-hud-row">14:34 <span class="dh-hud-val">Vendor working on RU-24</span></div>
+      <div class="dh-hud-row">14:35 <span class="dh-hud-val" id="dh-log-last">Monitoring adjacent nodes</span></div>
+    </div>
+
+    <!-- Caption -->
+    <div class="dh-caption reveal-sc">
+      <h2>Eyes on every rack.</h2>
+      <p>Escort Bot — Follow, Scan, Verify, Log</p>
+      <p style="max-width:560px; margin:16px auto 0; font-size:13px; color:rgba(255,255,255,0.3); line-height:1.7; text-transform:none; letter-spacing:0; font-weight:400;">What you're seeing: A vendor arrives to work on a single node. The bot escorts them to the rack, scans every node top-to-bottom to baseline health, then monitors while they work. It only watches the rack — not the person. If an adjacent node gets touched or something unexpected changes, the bot flags it. When the vendor finishes, it logs what was done and confirms nothing else was disturbed. Privacy-first: no cameras on people, just rack-level awareness.</p>
+    </div>
+  </section>
+
+  <!-- TEAM — hidden for now, unhide by removing style="display:none" -->
+  <section class="team-section" id="team" style="display:none">
+    <div class="team-inner">
+      <div class="team-label reveal">02 / The Team</div>
+      <h2 class="team-title reveal reveal-d1">Built on the floor.<br>By the floor.</h2>
+
+      <div class="team-grid">
+        <div class="team-member reveal">
+          <div class="member-avatar">JT</div>
+          <div class="member-name">Josh Tapia</div>
+          <!-- role: Arm Lead / DCT -->
+        </div>
+        <div class="team-member reveal reveal-d1">
+          <div class="member-avatar">RP</div>
+          <div class="member-name">Romeo Patino</div>
+          <!-- role: Escort Lead / DCT -->
+        </div>
+        <div class="team-member reveal reveal-d2">
+          <div class="member-avatar">PP</div>
+          <div class="member-name">Parth Patel</div>
+          <!-- role: Backend Engineer / DCT -->
+        </div>
+        <div class="team-member reveal reveal-d3">
+          <div class="member-avatar">RA</div>
+          <div class="member-name">Rodrigo Alba</div>
+          <!-- role: Floor Advisor / Tiger Team -->
+        </div>
+        <div class="team-member reveal">
+          <div class="member-avatar">JL</div>
+          <div class="member-name">James Logan</div>
+          <!-- role: Ops & Resources / Manager -->
+        </div>
+        <!-- HIDDEN: Role Pending members. Uncomment when roles are assigned.
+        <div class="team-member reveal reveal-d1">
+          <div class="member-avatar">AM</div>
+          <div class="member-name">Alex Murillo</div>
+        </div>
+        <div class="team-member reveal reveal-d2">
+          <div class="member-avatar">AW</div>
+          <div class="member-name">Andrew Westberg</div>
+        </div>
+        <div class="team-member reveal reveal-d3">
+          <div class="member-avatar">RC</div>
+          <div class="member-name">Robert Chairez</div>
+        </div>
+        <div class="team-member reveal">
+          <div class="member-avatar">RR</div>
+          <div class="member-name">Raphael Rodea</div>
+        </div>
+        <div class="team-member reveal reveal-d1">
+          <div class="member-avatar">TS</div>
+          <div class="member-name">Talha Shakil</div>
+        </div>
+        <div class="team-member reveal reveal-d2">
+          <div class="member-avatar">SP</div>
+          <div class="member-name">Sanjay Patel</div>
+        </div>
+        END HIDDEN -->
+        <!-- Saved roles for hidden members:
+             Alex Murillo: DCT (pending)
+             Andrew Westberg: DCT (pending)
+             Robert Chairez: DCT (pending)
+             Raphael Rodea: DCT (pending)
+             Talha Shakil: Presentation & Media / DCT
+             Sanjay Patel: DCT (pending)
+        -->
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <div class="counter-section">
+    <div class="counter-item reveal">
+      <span class="counter-num" data-count="5">0</span>
+      <span class="counter-label">Team members</span>
+    </div>
+    <div class="counter-item reveal reveal-d1">
+      <span class="counter-num" data-count="2">0</span>
+      <span class="counter-label">Robots</span>
+    </div>
+    <div class="counter-item reveal reveal-d2">
+      <span class="counter-num" data-count="14">0</span>
+      <span class="counter-label">Days to build</span>
+    </div>
+    <div class="counter-item reveal reveal-d3">
+      <span class="counter-num" data-count="1">0</span>
+      <span class="counter-label">Mission</span>
+    </div>
+  </div>
+
+  <!-- PREREQUISITES / BOM -->
+  <section class="prereqs-section" id="prereqs">
+    <div class="section-header reveal">
+      <div>
+        <div class="section-num">02 / Prerequisites</div>
+        <div class="section-title">What you need<br>to build this.</div>
+      </div>
+    </div>
+
+    <div class="prereqs-grid">
+      <div class="prereq-card reveal">
+        <div class="prereq-icon">&#9881;</div>
+        <div class="prereq-name">SO-ARM101 Motor Kit Pro</div>
+        <div class="prereq-desc">Complete servo motor kit for leader + follower arms. 12 servos (mixed gear ratios), 2 driver boards, cables, power supplies. The core of the build.</div>
+        <div class="prereq-meta">
+          <span class="prereq-price">$287</span>
+          <span class="prereq-source">Seeed Studio</span>
+        </div>
+      </div>
+
+      <div class="prereq-card reveal reveal-d1">
+        <div class="prereq-icon">&#9638;</div>
+        <div class="prereq-name">3D Printed Skeleton</div>
+        <div class="prereq-desc">Pre-printed structural parts for the SO-ARM101. Skip the print queue — order these pre-made or print on a Bambu/Ender if you have access.</div>
+        <div class="prereq-meta">
+          <span class="prereq-price">$35</span>
+          <span class="prereq-source">Seeed Studio</span>
+        </div>
+      </div>
+
+      <div class="prereq-card reveal reveal-d2">
+        <div class="prereq-icon">&#9699;</div>
+        <div class="prereq-name">USB-C Cables + Webcam</div>
+        <div class="prereq-desc">2x USB-C cables (included in kit). 1-2 webcams for training data collection — wrist-mounted and overhead angles.</div>
+        <div class="prereq-meta">
+          <span class="prereq-price">$25–50</span>
+          <span class="prereq-source">Amazon / On-hand</span>
+        </div>
+      </div>
+
+      <!-- GPU TRAINING PIPELINE — 3D Visual -->
+      <div class="prereq-card prereq-card--wide reveal reveal-d3" style="padding:0; overflow:hidden; background:linear-gradient(135deg, #060e1a 0%, #0a1628 40%, #0d1f3c 100%); border:1px solid rgba(10,47,107,0.2); min-height:520px; position:relative;">
+
+        <!-- Section label -->
+        <div style="position:absolute; top:24px; left:32px; z-index:10;">
+          <div style="font-size:11px; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:rgba(255,255,255,0.35);">How the Arm Learns — LeRobot</div>
+          <div style="font-size:22px; font-weight:800; color:#fff; margin-top:4px; letter-spacing:-0.02em;">Show it once. It repeats forever.</div>
+          <div style="font-size:12px; color:rgba(255,255,255,0.4); margin-top:6px; max-width:480px; line-height:1.6;">A human moves the arm while a webcam records. That data trains a neural network on a cloud GPU. The trained model downloads back to your MacBook and the arm runs autonomously. This is <strong style="color:rgba(255,255,255,0.6);">LeRobot</strong> — HuggingFace's open-source imitation learning framework. Only used for the SO-ARM101, not the escort bot.</div>
+        </div>
+
+        <!-- 3D Pipeline Scene -->
+        <div class="gpu-pipeline" id="gpu-pipeline">
+          <div class="gpu-scene">
+
+            <!-- STEP 1: MacBook (Collect) -->
+            <div class="gpu-node gpu-node--macbook" id="gpuNode1">
+              <div class="gpu-device">
+                <div class="gpu-laptop">
+                  <div class="gpu-laptop-screen">
+                    <div class="gpu-screen-content">
+                      <div class="gpu-terminal-line" style="width:60%"></div>
+                      <div class="gpu-terminal-line" style="width:80%; animation-delay:0.3s"></div>
+                      <div class="gpu-terminal-line" style="width:45%; animation-delay:0.6s"></div>
+                      <div class="gpu-terminal-line" style="width:70%; animation-delay:0.9s"></div>
+                    </div>
+                  </div>
+                  <div class="gpu-laptop-base"></div>
+                </div>
+              </div>
+              <div class="gpu-label">Step 1: Record</div>
+              <div class="gpu-sublabel">You move the arm. Webcam + joints record everything.</div>
+              <div class="gpu-tag gpu-tag--green">YOUR MACBOOK</div>
+            </div>
+
+            <!-- FLOW 1: Upload Arrow -->
+            <div class="gpu-flow gpu-flow--1">
+              <div class="gpu-flow-track">
+                <div class="gpu-particle gpu-particle--up"></div>
+                <div class="gpu-particle gpu-particle--up" style="animation-delay:0.6s"></div>
+                <div class="gpu-particle gpu-particle--up" style="animation-delay:1.2s"></div>
+              </div>
+              <div class="gpu-flow-label">Upload Recordings</div>
+            </div>
+
+            <!-- STEP 2: Cloud GPU (Train) -->
+            <div class="gpu-node gpu-node--cloud" id="gpuNode2">
+              <div class="gpu-device">
+                <div class="gpu-server">
+                  <div class="gpu-server-rack">
+                    <div class="gpu-server-unit">
+                      <div class="gpu-server-led gpu-server-led--active"></div>
+                      <div class="gpu-server-led gpu-server-led--active" style="animation-delay:0.4s"></div>
+                      <div class="gpu-server-led"></div>
+                    </div>
+                    <div class="gpu-server-unit">
+                      <div class="gpu-server-led gpu-server-led--active" style="animation-delay:0.2s"></div>
+                      <div class="gpu-server-led gpu-server-led--active" style="animation-delay:0.8s"></div>
+                      <div class="gpu-server-led gpu-server-led--active" style="animation-delay:0.5s"></div>
+                    </div>
+                    <div class="gpu-server-unit">
+                      <div class="gpu-server-led gpu-server-led--active" style="animation-delay:0.6s"></div>
+                      <div class="gpu-server-led"></div>
+                      <div class="gpu-server-led gpu-server-led--active" style="animation-delay:1s"></div>
+                    </div>
+                  </div>
+                  <!-- GPU glow pulse -->
+                  <div class="gpu-glow-ring"></div>
+                </div>
+              </div>
+              <div class="gpu-label">Step 2: Train</div>
+              <div class="gpu-sublabel">Cloud GPU learns to copy your movements. ~2 hrs, $10-30.</div>
+              <div class="gpu-tag gpu-tag--blue">CLOUD A100</div>
+            </div>
+
+            <!-- FLOW 2: Download Arrow -->
+            <div class="gpu-flow gpu-flow--2">
+              <div class="gpu-flow-track">
+                <div class="gpu-particle gpu-particle--down"></div>
+                <div class="gpu-particle gpu-particle--down" style="animation-delay:0.6s"></div>
+                <div class="gpu-particle gpu-particle--down" style="animation-delay:1.2s"></div>
+              </div>
+              <div class="gpu-flow-label">Download Brain</div>
+            </div>
+
+            <!-- STEP 3: MacBook (Inference) -->
+            <div class="gpu-node gpu-node--inference" id="gpuNode3">
+              <div class="gpu-device">
+                <div class="gpu-laptop gpu-laptop--running">
+                  <div class="gpu-laptop-screen">
+                    <div class="gpu-screen-content gpu-screen-content--running">
+                      <div class="gpu-arm-visual">
+                        <div class="gpu-arm-seg gpu-arm-seg--1"></div>
+                        <div class="gpu-arm-seg gpu-arm-seg--2"></div>
+                        <div class="gpu-arm-seg gpu-arm-seg--3"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="gpu-laptop-base"></div>
+                </div>
+              </div>
+              <div class="gpu-label">Step 3: Deploy</div>
+              <div class="gpu-sublabel">Download model. Arm moves on its own — no human needed.</div>
+              <div class="gpu-tag gpu-tag--green">ARM RUNS AUTONOMOUSLY</div>
+            </div>
+
+          </div>
+
+          <!-- Bottom stats bar -->
+          <div class="gpu-stats">
+            <div class="gpu-stat">
+              <span class="gpu-stat-val">Free</span>
+              <span class="gpu-stat-unit">LeRobot framework</span>
+            </div>
+            <div class="gpu-stat-sep"></div>
+            <div class="gpu-stat">
+              <span class="gpu-stat-val">$10-30</span>
+              <span class="gpu-stat-unit">cloud training</span>
+            </div>
+            <div class="gpu-stat-sep"></div>
+            <div class="gpu-stat">
+              <span class="gpu-stat-val">~2hr</span>
+              <span class="gpu-stat-unit">to train</span>
+            </div>
+            <div class="gpu-stat-sep"></div>
+            <div class="gpu-stat">
+              <span class="gpu-stat-val">Local</span>
+              <span class="gpu-stat-unit">runs on your Mac</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="prereq-card reveal reveal-d4">
+        <div class="prereq-icon">&#8982;</div>
+        <div class="prereq-name">Rack Mount Bracket</div>
+        <div class="prereq-desc">Custom 3D-printed cage nut bracket or C-clamp to attach arm base to a standard 19" rack post. Design included in repo.</div>
+        <div class="prereq-meta">
+          <span class="prereq-price">$5–10</span>
+          <span class="prereq-source">3D Print</span>
+        </div>
+      </div>
+
+      <div class="prereq-card reveal reveal-d5">
+        <div class="prereq-icon">&#9881;</div>
+        <div class="prereq-name">LeRobot Framework</div>
+        <div class="prereq-desc">Open-source from HuggingFace. Handles data collection, training, and deployment. Supports ACT, Diffusion Policy, SmolVLA out of the box.</div>
+        <div class="prereq-meta">
+          <span class="prereq-price">Free</span>
+          <span class="prereq-source">GitHub</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="prereq-total reveal" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
+        <div>
+          <div class="prereq-total-label">Worst-Case Estimated Total</div>
+          <div class="prereq-total-note">Single arm build. Every line item accounted for. No wishful thinking.</div>
+        </div>
+        <div class="prereq-total-price">$204–$670</div>
+      </div>
+
+      <table class="compare-table" style="margin-bottom:24px;">
+        <tr style="border-bottom:2px solid rgba(10,22,40,0.1);"><td class="compare-label" style="font-size:11px; letter-spacing:0.1em; text-transform:uppercase;">Item</td><td style="font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;">Best Case</td><td style="font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;">Worst Case</td><td style="font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase;">Notes</td></tr>
+        <!-- BIG ITEMS (>$40) — highlighted -->
+        <tr style="background:rgba(10,47,107,0.04);"><td class="compare-label" style="color:var(--accent);">SO-ARM101 Kit</td><td style="color:var(--accent); font-weight:700;">$169</td><td style="color:var(--accent); font-weight:700;">$287</td><td>HiWonder pre-built = $169. Seeed motor kit = $287. Josh ordering — source TBD.</td></tr>
+        <tr style="background:rgba(10,47,107,0.04);"><td class="compare-label" style="color:var(--accent);">Cloud GPU (training)</td><td style="color:var(--accent); font-weight:700;">$10</td><td style="color:var(--accent); font-weight:700;">$60</td><td>Lambda/Vast.ai A100 @ $1-3/hr. If ACT policy fails and you retrain 5+ times, or switch to Diffusion Policy = more hours. Colab Pro+ subscription = $50/mo if you go that route.</td></tr>
+        <tr style="background:rgba(10,47,107,0.04);"><td class="compare-label" style="color:var(--accent);">Escort Bot Base</td><td style="color:var(--accent); font-weight:700;">$0</td><td style="color:var(--accent); font-weight:700;">$80</td><td>Used Roomba iCreate ($30-80), RC car chassis ($40-60), or borrow one. Phone as camera. If buying new wheeled platform = $60-80.</td></tr>
+        <tr style="background:rgba(10,47,107,0.04);"><td class="compare-label" style="color:var(--accent);">Webcam (1080p USB)</td><td style="color:var(--accent); font-weight:700;">$25</td><td style="color:var(--accent); font-weight:700;">$50</td><td>Logitech C920 ~$30. Need 1 for training + 1 for wrist mount if doing dual-angle. Buying new.</td></tr>
+        <tr style="background:rgba(10,47,107,0.04);"><td class="compare-label" style="color:var(--accent);">Rush Shipping</td><td style="color:var(--accent); font-weight:700;">$0</td><td style="color:var(--accent); font-weight:700;">$45</td><td>If Josh orders late or picks wrong vendor. HiWonder expedited = $20-40. Seeed from China = 3 weeks standard, rush = $40+. This alone can kill the timeline.</td></tr>
+        <!-- MEDIUM ITEMS -->
+        <tr><td class="compare-label">3D Printed Parts</td><td>$0</td><td>$35</td><td>Free if HiWonder (pre-assembled). $35 from Seeed if motor kit only. $15 if you find a local maker.</td></tr>
+        <tr><td class="compare-label">Domain Name</td><td>$0</td><td>$15</td><td>Only if you want floorcrew.dev or similar for the demo. GitHub Pages = free hosting. Not required but looks professional in the recording.</td></tr>
+        <tr><td class="compare-label">AI API Credits</td><td>$0</td><td>$20</td><td>If the dashboard uses Claude/GPT for rack scan analysis or log summarization. Anthropic API = pay per token. Could be $5-20 depending on demo runs.</td></tr>
+        <tr><td class="compare-label">Server / Hosting</td><td>$0</td><td>$10</td><td>For real-time dashboard during demo. Vercel/Netlify free tier works. If you need a backend (WebSocket for live arm status) = Railway/Render ~$5-10/mo.</td></tr>
+        <tr><td class="compare-label">Power Supply</td><td>$0</td><td>$15</td><td>Included in HiWonder kit. Seeed kit includes it. If wrong voltage or dead on arrival = $15 replacement from Amazon.</td></tr>
+        <tr><td class="compare-label">USB Hub</td><td>$0</td><td>$15</td><td>M4 MacBook has limited USB-C ports. Webcam + servo bus + power = need a hub. Anker 4-port = $12.</td></tr>
+        <tr><td class="compare-label">Phone Mount / Tripod</td><td>$0</td><td>$15</td><td>For recording demo + wrist-mounted cam. Talha may have one. If not, $10-15 Amazon.</td></tr>
+        <tr><td class="compare-label">USB-C Cables</td><td>$0</td><td>$10</td><td>Included in most kits. Need backup if one is short/bad. $5-10 for a 2-pack.</td></tr>
+        <tr><td class="compare-label">Rack Mount Bracket</td><td>$0</td><td>$10</td><td>3D print or C-clamp. No printer access = $8 clamp from Home Depot. Duct tape as last resort.</td></tr>
+        <!-- FREE ITEMS -->
+        <tr><td class="compare-label">Spare Optics + Panel</td><td>$0</td><td>$0</td><td>Romeo has spare transceivers and a switch panel from decom. No cost.</td></tr>
+        <tr><td class="compare-label">LeRobot Framework</td><td>$0</td><td>$0</td><td>Free. Open source. pip install lerobot. HuggingFace.</td></tr>
+        <tr><td class="compare-label">Python / libusb</td><td>$0</td><td>$0</td><td>brew install libusb + python3.10. Free. Required for servo USB serial on Mac.</td></tr>
+        <tr><td class="compare-label">PyTorch (MPS)</td><td>$0</td><td>$0</td><td>Free. M4 MPS backend for inference. Works but slower than CUDA. Fine for demo.</td></tr>
+        <tr><td class="compare-label">Video Editing</td><td>$0</td><td>$0</td><td>iMovie or DaVinci Resolve (free). Talha handles. 2-3 min pre-recorded demo.</td></tr>
+        <!-- TOTAL -->
+        <tr style="border-top:2px solid var(--accent);"><td class="compare-label" style="color:var(--accent); font-size:15px;">TOTAL</td><td style="font-weight:800; color:var(--accent); font-size:18px;">$204</td><td style="font-weight:800; color:var(--accent); font-size:18px;">$670</td><td style="color:var(--text-muted); font-weight:600;">Best = HiWonder + free everything. Worst = Seeed + rush shipping + escort bot + every accessory + API credits.</td></tr>
+      </table>
+
+      <div class="compare-verdict" style="background:rgba(10,47,107,0.04); border-color:rgba(10,47,107,0.1);">
+        Realistic split: <strong>$60–130/person</strong> (5 members) or <strong>$30–60/person</strong> (all 11). Budget a $100 buffer for things nobody thinks of.
+      </div>
+    </div>
+  </section>
+
+  <!-- TIMELINE -->
+  <section class="timeline-section" id="timeline">
+    <div class="section-header reveal">
+      <div>
+        <div class="section-num">03 / The Plan</div>
+        <div class="section-title">14 days.<br>Ship it.</div>
+      </div>
+    </div>
+
+    <div class="timeline-list">
+      <div class="timeline-row reveal">
+        <div class="timeline-left">
+          <span class="timeline-day">Day 1</span>
+          <span class="timeline-task">Order all hardware</span>
+        </div>
+        <span class="timeline-who">Everyone</span>
+      </div>
+      <div class="timeline-row reveal reveal-d1">
+        <div class="timeline-left">
+          <span class="timeline-day">Days 2-3</span>
+          <span class="timeline-task">3D print + unbox</span>
+        </div>
+        <span class="timeline-who">Build Team</span>
+      </div>
+      <div class="timeline-row reveal reveal-d2">
+        <div class="timeline-left">
+          <span class="timeline-day">Days 4-5</span>
+          <span class="timeline-task">Assemble both robots</span>
+        </div>
+        <span class="timeline-who">Build Team</span>
+      </div>
+      <div class="timeline-row reveal reveal-d3">
+        <div class="timeline-left">
+          <span class="timeline-day">Days 6-7</span>
+          <span class="timeline-task">Software + teleoperation</span>
+        </div>
+        <span class="timeline-who">Romeo</span>
+      </div>
+      <div class="timeline-row reveal reveal-d4">
+        <div class="timeline-left">
+          <span class="timeline-day">Days 8-10</span>
+          <span class="timeline-task">Train arm + escort nav</span>
+        </div>
+        <span class="timeline-who">Romeo + Team</span>
+      </div>
+      <div class="timeline-row reveal">
+        <div class="timeline-left">
+          <span class="timeline-day">Days 11-12</span>
+          <span class="timeline-task">Unified dashboard</span>
+        </div>
+        <span class="timeline-who">Romeo</span>
+      </div>
+      <div class="timeline-row reveal reveal-d1">
+        <div class="timeline-left">
+          <span class="timeline-day">Day 13</span>
+          <span class="timeline-task">Demo rehearsal</span>
+        </div>
+        <span class="timeline-who">Everyone</span>
+      </div>
+      <div class="timeline-row reveal reveal-d2">
+        <div class="timeline-left">
+          <span class="timeline-day">Day 14</span>
+          <span class="timeline-task">Hackathon day</span>
+        </div>
+        <span class="timeline-who">Ship it</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- REALITY CHECK -->
+  <section class="timeline-section" style="background: var(--bg-2); border-top: 1px solid var(--border);">
+    <div class="section-header reveal">
+      <div>
+        <div class="section-num">04 / Real Talk</div>
+        <div class="section-title">Why this wins.</div>
+      </div>
+    </div>
+    <div style="max-width: 720px; margin-top: 48px;">
+      <p class="reveal" style="font-size: 18px; color: var(--accent); line-height: 1.75; margin-bottom: 32px; font-weight: 700;">
+        The Pros
+      </p>
+      <p class="reveal" style="font-size: 16px; color: var(--text-muted); line-height: 1.75; margin-bottom: 8px;">
+        <strong style="color: var(--text);">Nobody else is touching hardware.</strong> Every other team will demo a dashboard or an LLM wrapper. We're bringing a physical robot to demo day. That alone makes us unforgettable.
+      </p>
+      <p class="reveal reveal-d1" style="font-size: 16px; color: var(--text-muted); line-height: 1.75; margin-bottom: 8px;">
+        <strong style="color: var(--text);">It's real DC work.</strong> Optic seating, rack inspection, escort logging — these are things we do every single shift. The judges will feel it because it's authentic.
+      </p>
+      <p class="reveal reveal-d2" style="font-size: 16px; color: var(--text-muted); line-height: 1.75; margin-bottom: 8px;">
+        <strong style="color: var(--text);">The cost is nothing.</strong> ~$350 for a robot arm that can be trained in a weekend. The ROI story writes itself.
+      </p>
+      <p class="reveal reveal-d3" style="font-size: 16px; color: var(--text-muted); line-height: 1.75; margin-bottom: 32px;">
+        <strong style="color: var(--text);">It closes the loop.</strong> Not a visualization. Not a dashboard. The arm picks up the optic, seats it, and the port goes green. Done.
+      </p>
+
+      <p class="reveal" style="font-size: 18px; color: var(--text-muted); line-height: 1.75; margin-bottom: 32px; font-weight: 700;">
+        The Cons
+      </p>
+      <p class="reveal" style="font-size: 16px; color: var(--text-muted); line-height: 1.75; margin-bottom: 8px;">
+        Hardware hasn't shipped yet. 7-14 day window on a 14-day timeline.
+      </p>
+      <p class="reveal reveal-d1" style="font-size: 16px; color: var(--text-muted); line-height: 1.75; margin-bottom: 8px;">
+        Most of us have zero robotics experience.
+      </p>
+      <p class="reveal reveal-d2" style="font-size: 16px; color: var(--text-muted); line-height: 1.75; margin-bottom: 8px;">
+        Training requires hours of teleoperation data nobody's collected yet.
+      </p>
+      <p class="reveal reveal-d3" style="font-size: 16px; color: var(--text-muted); line-height: 1.75; margin-bottom: 32px;">
+        Escort robot platform still TBD.
+      </p>
+
+      <p class="reveal" style="font-size: 20px; color: var(--accent); line-height: 1.75; font-weight: 800; border-top: 2px solid var(--accent); padding-top: 24px;">
+        The pros crush the cons — but only if we execute. No half-speed. We need to ship every piece on time and show up with something no other team can touch. This is how we win it.
+      </p>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <div class="cta-bg-text">FLOOR</div>
+    <h2 class="cta-title reveal">
+      More. Better.<br>Faster.
+    </h2>
+    <p class="cta-sub reveal reveal-d1">The data center floor, automated.</p>
+    <div class="btn-magnetic reveal reveal-d2" id="mag-btn">
+      <div class="btn-magnetic-inner">
+        <span>March 23, 2026</span>
+        <span>+</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <a href="#" class="footer-logo">FloorCrew</a>
+    <p class="footer-center">CoreWeave Hackathon 2026 — EVI01</p>
+    <div class="footer-right">
+      <a href="https://github.com/TheRobotStudio/SO-ARM100">SO-ARM101</a>
+      <a href="https://huggingface.co/docs/lerobot/so101">LeRobot</a>
+    </div>
+  </footer>
+
+  <script>
+  // ── Compare toggle (Cloud vs Local) ──────────────────────
+  document.querySelectorAll('.compare-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.prereq-card');
+      card.querySelectorAll('.compare-btn').forEach(b => b.classList.remove('active'));
+      card.querySelectorAll('.compare-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      card.querySelector('#panel-' + btn.dataset.target).classList.add('active');
+    });
+  });
+
+  // ── Canvas particle system (pauses when page hidden) ─────
+  (function() {
+    const canvas = document.getElementById('canvas-bg');
+    const ctx    = canvas.getContext('2d');
+    let W, H, particles = [], mouse = { x: -999, y: -999 };
+    const COUNT = 80;
+    let canvasRunning = true;
+
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+
+    function Particle() { this.reset(); }
+
+    Particle.prototype.reset = function() {
+      this.x  = Math.random() * W;
+      this.y  = Math.random() * H;
+      this.vx = (Math.random() - 0.5) * 0.35;
+      this.vy = (Math.random() - 0.5) * 0.35;
+      this.r  = Math.random() * 2.2 + 0.6;
+      this.a  = Math.random() * 0.6 + 0.25;
+    };
+
+    Particle.prototype.update = function() {
+      const dx = this.x - mouse.x;
+      const dy = this.y - mouse.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 140) {
+        const force = (140 - dist) / 140 * 0.6;
+        this.vx += (dx / dist) * force;
+        this.vy += (dy / dist) * force;
+      }
+      this.vx *= 0.97;
+      this.vy *= 0.97;
+      this.x += this.vx;
+      this.y += this.vy;
+      if (this.x < 0) this.x = W;
+      if (this.x > W) this.x = 0;
+      if (this.y < 0) this.y = H;
+      if (this.y > H) this.y = 0;
+    };
+
+    function drawLines() {
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx   = particles[i].x - particles[j].x;
+          const dy   = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 130) {
+            const alpha = (1 - dist / 130) * 0.3;
+            ctx.strokeStyle = `rgba(10,47,107,${alpha * 0.5})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    function animate() {
+      if (!canvasRunning) return;
+      ctx.clearRect(0, 0, W, H);
+      particles.forEach(p => {
+        p.update();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(10,22,40,${p.a * 0.45})`;
+        ctx.fill();
+      });
+      drawLines();
+      requestAnimationFrame(animate);
+    }
+
+    resize();
+    window.addEventListener('resize', resize, { passive: true });
+    for (let i = 0; i < COUNT; i++) particles.push(new Particle());
+    document.addEventListener('mousemove', e => {
+      mouse.x = e.clientX; mouse.y = e.clientY;
+    }, { passive: true });
+
+    // Pause when tab hidden
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { canvasRunning = false; }
+      else { canvasRunning = true; animate(); }
+    });
+    animate();
+  })();
+
+  // ── Unified scroll handler (rAF-throttled) ────────────────
+  (function() {
+    const nav     = document.querySelector('nav');
+    const bar     = document.getElementById('scroll-progress');
+    const title   = document.querySelector('.hero-title');
+    const desc    = document.querySelector('.hero-desc');
+    const eyebrow = document.querySelector('.hero-eyebrow');
+    const bgText  = document.querySelector('.cta-bg-text');
+    const ctaSect = bgText ? bgText.closest('section') : null;
+    let ticking   = false;
+
+    function onScroll() {
+      const y = window.scrollY;
+
+      // Nav scroll state
+      if (nav) nav.classList.toggle('scrolled', y > 60);
+
+      // Scroll progress bar
+      if (bar) {
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        bar.style.width = (max > 0 ? (y / max) * 100 : 0) + '%';
+      }
+
+      // Hero parallax (only when hero is near viewport)
+      if (y < window.innerHeight * 1.5) {
+        if (title)   title.style.transform   = `translateY(${y * 0.22}px)`;
+        if (desc)    desc.style.transform    = `translateY(${y * 0.14}px)`;
+        if (eyebrow) eyebrow.style.transform = `translateY(${y * 0.10}px)`;
+      }
+
+      // CTA bg-text parallax
+      if (ctaSect) {
+        const rect  = ctaSect.getBoundingClientRect();
+        if (rect.top < window.innerHeight && rect.bottom > 0) {
+          const ratio = 1 - (rect.top + rect.height / 2) / window.innerHeight;
+          bgText.style.transform = `translateX(${ratio * -80}px)`;
+        }
+      }
+
+      ticking = false;
+    }
+
+    window.addEventListener('scroll', () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(onScroll); }
+    }, { passive: true });
+  })();
+
+  // ── Custom cursor ────────────────────────────────────────
+  (function() {
+    const dot  = document.getElementById('c-dot');
+    const ring = document.getElementById('c-ring');
+    let rx = 0, ry = 0, mx = 0, my = 0;
+
+    document.addEventListener('mousemove', e => {
+      mx = e.clientX; my = e.clientY;
+      dot.style.left = mx + 'px';
+      dot.style.top  = my + 'px';
+    }, { passive: true });
+
+    (function lerp() {
+      rx += (mx - rx) * 0.12;
+      ry += (my - ry) * 0.12;
+      ring.style.left = rx + 'px';
+      ring.style.top  = ry + 'px';
+      requestAnimationFrame(lerp);
+    })();
+
+    document.querySelectorAll('a, button, .robot-card, .timeline-row, .team-member, .prereq-card, .btn-magnetic').forEach(el => {
+      el.addEventListener('mouseenter', () => { dot.classList.add('hover'); ring.classList.add('hover'); });
+      el.addEventListener('mouseleave', () => { dot.classList.remove('hover'); ring.classList.remove('hover'); });
+    });
+  })();
+
+  // ── Magnetic button ──────────────────────────────────────
+  (function() {
+    const btn = document.getElementById('mag-btn');
+    if (!btn) return;
+    btn.addEventListener('mousemove', e => {
+      const r  = btn.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const dx = (e.clientX - cx) * 0.25;
+      const dy = (e.clientY - cy) * 0.25;
+      btn.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = '';
+      btn.style.transition = 'transform 0.5s cubic-bezier(.16,1,.3,1)';
+      setTimeout(() => btn.style.transition = '', 500);
+    });
+  })();
+
+  // ── Scroll reveal ─────────────────────────────────────────
+  (function() {
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+  })();
+
+  // ── GPU pipeline entrance ────────────────────────────────
+  (function() {
+    const pipeline = document.getElementById('gpu-pipeline');
+    if (!pipeline) return;
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          pipeline.classList.add('gpu-entered');
+          obs.unobserve(pipeline);
+        }
+      });
+    }, { threshold: 0.2 });
+    obs.observe(pipeline);
+  })();
+
+  // ── Timeline row stagger index ─────────────────────────────
+  (function() {
+    document.querySelectorAll('.timeline-row').forEach((row, i) => {
+      row.style.setProperty('--row-i', i);
+    });
+  })();
+
+  // ── Robot card 3D tilt on hover ────────────────────────────
+  (function() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.querySelectorAll('.robot-card').forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const r = card.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - 0.5;
+        const y = (e.clientY - r.top) / r.height - 0.5;
+        card.style.transform = `translateY(-6px) perspective(800px) rotateY(${x * 6}deg) rotateX(${-y * 4}deg)`;
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = '';
+      });
+    });
+  })();
+
+  // ── Counter animation ─────────────────────────────────────
+  (function() {
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        const el  = e.target;
+        const end = parseInt(el.dataset.count);
+        const dur = 1800;
+        const start = performance.now();
+        obs.unobserve(el);
+        requestAnimationFrame(function tick(now) {
+          const pct = Math.min((now - start) / dur, 1);
+          const ease = 1 - Math.pow(1 - pct, 3);
+          el.textContent = Math.round(ease * end);
+          if (pct < 1) requestAnimationFrame(tick);
+        });
+      });
+    }, { threshold: 0.5 });
+    document.querySelectorAll('[data-count]').forEach(el => obs.observe(el));
+  })();
+
+  // ── Page load curtain ─────────────────────────────────────
+  (function() {
+    const curtain = document.getElementById('curtain');
+    window.addEventListener('load', () => {
+      curtain.classList.add('away');
+      setTimeout(() => { if (curtain.parentNode) curtain.remove(); }, 1300);
+    });
+  })();
+
+  // (Scroll progress + Hero parallax merged into unified scroll handler above)
+
+  // ── Cursor trail (updates only on move, not every frame) ──
+  (function() {
+    const trails  = [0,1,2,3,4].map(i => document.getElementById('tr' + i));
+    const history = [];
+    let trailDirty = false;
+
+    document.addEventListener('mousemove', e => {
+      history.unshift({ x: e.clientX, y: e.clientY });
+      if (history.length > 24) history.pop();
+      if (!trailDirty) {
+        trailDirty = true;
+        requestAnimationFrame(() => {
+          trails.forEach((t, i) => {
+            const p = history[i * 4] || history[history.length - 1];
+            if (!p) return;
+            const size = (5 - i * 0.7);
+            t.style.left    = p.x + 'px';
+            t.style.top     = p.y + 'px';
+            t.style.width   = size + 'px';
+            t.style.height  = size + 'px';
+            t.style.opacity = ((1 - i / trails.length) * 0.35).toFixed(2);
+          });
+          trailDirty = false;
+        });
+      }
+    }, { passive: true });
+  })();
+
+  // ── Marquee — constant smooth speed, no scroll reactivity ──
+
+  // ── Timeline number scramble on hover ──────────────────────
+  (function() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    document.querySelectorAll('.timeline-row').forEach(row => {
+      const taskEl = row.querySelector('.timeline-task');
+      if (!taskEl) return;
+      const orig = taskEl.textContent;
+      row.addEventListener('mouseenter', () => {
+        const start = performance.now();
+        const dur   = 380;
+        (function tick(now) {
+          const pct    = Math.min((now - start) / dur, 1);
+          const locked = Math.floor(pct * orig.length);
+          let result   = '';
+          for (let j = 0; j < orig.length; j++) {
+            if (orig[j] === ' ') { result += ' '; continue; }
+            result += j < locked ? orig[j] : chars[Math.floor(Math.random() * chars.length)];
+          }
+          taskEl.textContent = result;
+          if (pct < 1) requestAnimationFrame(tick);
+          else taskEl.textContent = orig;
+        })(performance.now());
+      });
+    });
+  })();
+
+  // (CTA bg-text parallax merged into unified scroll handler above)
+
+  // ── 3D Showcase — Robotic arm animation ───────────────────
+  (function() {
+    const scene    = document.getElementById('sc-scene');
+    const camera   = document.getElementById('sc-camera');
+    const s1       = document.getElementById('arm-s1');
+    const s2       = document.getElementById('arm-s2');
+    const s3       = document.getElementById('arm-s3');
+    const gripL    = document.getElementById('grip-l');
+    const gripR    = document.getElementById('grip-r');
+    const optic    = document.getElementById('sc-optic');
+    const opticGlow= document.getElementById('optic-glow');
+    const trayOptic= document.getElementById('sc-tray-optic');
+    const flash    = document.getElementById('sc-flash');
+    const bloom    = document.getElementById('sc-bloom');
+    const laserH   = document.getElementById('sc-laser-h');
+    const laserV   = document.getElementById('sc-laser-v');
+    const targetPort = document.getElementById('target-port');
+    const hudStatus = document.getElementById('hud-status');
+    const hudCycle  = document.getElementById('hud-cycle');
+    const particleContainer = document.getElementById('sc-particles');
+
+    const armBase  = document.getElementById('arm-base');
+    const armShadow= document.getElementById('arm-shadow');
+
+    if (!scene) return;
+
+    // Spawn particles
+    for (let i = 0; i < 20; i++) {
+      const p = document.createElement('div');
+      p.className = 'sc-particle';
+      p.style.left = (Math.random() * 100) + '%';
+      p.style.top  = (40 + Math.random() * 40) + '%';
+      p.style.animationDelay = (Math.random() * 6) + 's';
+      p.style.animationDuration = (4 + Math.random() * 4) + 's';
+      p.style.width = (1 + Math.random() * 2) + 'px';
+      p.style.height = p.style.width;
+      p.style.opacity = (0.2 + Math.random() * 0.4).toFixed(2);
+      particleContainer.appendChild(p);
+    }
+
+    // Mouse parallax on showcase
+    const showcase = document.querySelector('.showcase');
+    if (showcase) {
+      showcase.addEventListener('mousemove', e => {
+        const rect = showcase.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width - 0.5;
+        const my = (e.clientY - rect.top) / rect.height - 0.5;
+        if (camera) {
+          camera.style.transform = `rotateY(${mx * 6}deg) rotateX(${-my * 4}deg) translateZ(10px)`;
+        }
+      }, { passive: true });
+
+      showcase.addEventListener('mouseleave', () => {
+        if (camera) camera.style.transform = '';
+      });
+    }
+
+    // Scroll reveal for showcase
+    const scReveals = document.querySelectorAll('.reveal-sc');
+    const scObs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          scObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    scReveals.forEach(el => scObs.observe(el));
+
+    // Animation sequence
+    let cycle = 1;
+    let animating = false;
+
+    function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    const T = 'cubic-bezier(.16,1,.3,1)';
+
+    function setSegTransitions(dur) {
+      s1.style.transition = `transform ${dur}s ${T}`;
+      s2.style.transition = `transform ${dur}s ${T}`;
+      s3.style.transition = `transform ${dur}s ${T}`;
+    }
+
+    function setGripTransitions(dur) {
+      gripL.style.transition = `transform ${dur}s ${T}`;
+      gripR.style.transition = `transform ${dur}s ${T}`;
+    }
+
+    // Reset everything to initial state
+    function resetArm() {
+      s1.style.transition = 'none';
+      s2.style.transition = 'none';
+      s3.style.transition = 'none';
+      gripL.style.transition = 'none';
+      gripR.style.transition = 'none';
+
+      // Arm upright
+      s1.style.transform = 'translateX(-50%) rotate(0deg)';
+      s2.style.transform = 'translateX(-50%) rotate(0deg)';
+      s3.style.transform = 'translateX(-50%) rotate(0deg)';
+
+      // Fingers open
+      gripL.style.transform = 'rotate(12deg)';
+      gripR.style.transform = 'rotate(-12deg)';
+
+      // Optic hidden in gripper, visible on tray
+      optic.classList.remove('held');
+      if (trayOptic) trayOptic.style.opacity = '1';
+      if (opticGlow) opticGlow.style.opacity = '0';
+
+      // Effects off
+      flash.style.opacity = '0';
+      bloom.style.opacity = '0';
+      laserH.style.opacity = '0';
+      laserV.style.opacity = '0';
+      if (armShadow) { armShadow.style.width = '120px'; armShadow.style.left = '48%'; }
+      hudStatus.textContent = 'READY';
+    }
+
+    async function runSequence() {
+      if (animating) return;
+      animating = true;
+      resetArm();
+      await wait(600);
+
+      // ─── Smooth arc: tray → pickup → swing to switch → insert → retract
+      // All transitions use long durations so phases blend into each other
+
+      // ─── Swing LEFT to optic tray (one smooth arc) ─────
+      hudStatus.textContent = 'LOCATING';
+      setSegTransitions(2.0);
+      if (armShadow) { armShadow.style.transition = 'width 2s, left 2s'; armShadow.style.width = '150px'; armShadow.style.left = '30%'; }
+
+      s1.style.transform = 'translateX(-50%) rotate(-40deg)';
+      s2.style.transform = 'translateX(-50%) rotate(-3deg)';
+      s3.style.transform = 'translateX(-50%) rotate(-2deg)';
+      await wait(2000);
+
+      // ─── Close gripper (quick, no stop) ────────────────
+      hudStatus.textContent = 'GRIPPING';
+      setGripTransitions(0.4);
+      gripL.style.transform = 'rotate(1deg)';
+      gripR.style.transform = 'rotate(-1deg)';
+      await wait(300);
+      optic.classList.add('held');
+      if (trayOptic) trayOptic.style.opacity = '0';
+      if (opticGlow) opticGlow.style.opacity = '0.7';
+
+      // ─── Immediately swing RIGHT to switch (one continuous arc, no center stop) ──
+      hudStatus.textContent = 'TRANSITING';
+      setSegTransitions(3.0);
+      if (armShadow) { armShadow.style.transition = 'width 3s, left 3s'; armShadow.style.width = '150px'; armShadow.style.left = '62%'; }
+
+      s1.style.transform = 'translateX(-50%) rotate(45deg)';
+      s2.style.transform = 'translateX(-50%) rotate(3deg)';
+      s3.style.transform = 'translateX(-50%) rotate(2deg)';
+
+      // Lasers fade in midway through the swing
+      await wait(1800);
+      hudStatus.textContent = 'ALIGNING';
+      laserH.style.left = '72%';
+      laserH.style.top = '30%';
+      laserH.style.transition = 'opacity 0.6s';
+      laserH.style.opacity = '0.8';
+      laserV.style.left = '78%';
+      laserV.style.top = '24%';
+      laserV.style.transition = 'opacity 0.6s';
+      laserV.style.opacity = '0.7';
+      await wait(1200);
+
+      // ─── Final approach — gentle nudge forward ─────────
+      hudStatus.textContent = 'INSERTING';
+      setSegTransitions(1.5);
+      s1.style.transform = 'translateX(-50%) rotate(48deg)';
+      s2.style.transform = 'translateX(-50%) rotate(4deg)';
+      s3.style.transform = 'translateX(-50%) rotate(2deg)';
+      await wait(1500);
+
+      // ─── Insertion flash ───────────────────────────────
+      flash.style.left = '84%';
+      flash.style.top = '30%';
+      flash.style.transform = 'translate(-50%, -50%)';
+      flash.style.transition = 'opacity 0.12s';
+      flash.style.opacity = '1';
+      bloom.style.opacity = '1';
+      await wait(150);
+      flash.style.transition = 'opacity 0.8s';
+      flash.style.opacity = '0';
+      laserH.style.opacity = '0';
+      laserV.style.opacity = '0';
+
+      targetPort.classList.add('filled');
+      targetPort.classList.remove('target');
+      hudStatus.textContent = 'VERIFIED';
+      await wait(400);
+
+      // ─── Release and retract (one smooth motion back) ──
+      setGripTransitions(0.4);
+      gripL.style.transform = 'rotate(22deg)';
+      gripR.style.transform = 'rotate(-22deg)';
+      optic.classList.remove('held');
+      if (opticGlow) opticGlow.style.opacity = '0';
+
+      // Immediately start pulling back — no pause after release
+      if (armShadow) { armShadow.style.transition = 'width 2.5s, left 2.5s'; armShadow.style.width = '120px'; armShadow.style.left = '48%'; }
+      setSegTransitions(2.5);
+      s1.style.transform = 'translateX(-50%) rotate(0deg)';
+      s2.style.transform = 'translateX(-50%) rotate(0deg)';
+      s3.style.transform = 'translateX(-50%) rotate(0deg)';
+      setGripTransitions(1.0);
+      gripL.style.transform = 'rotate(12deg)';
+      gripR.style.transform = 'rotate(-12deg)';
+      await wait(2500);
+
+      bloom.style.opacity = '0';
+      hudStatus.textContent = 'COMPLETE';
+      cycle++;
+      hudCycle.textContent = String(cycle).padStart(3, '0');
+
+      await wait(2000);
+
+      // Reset and loop
+      targetPort.classList.remove('filled');
+      targetPort.classList.add('target');
+      if (trayOptic) trayOptic.style.opacity = '1';
+      animating = false;
+      runSequence();
+    }
+
+    // Start when in view
+    const startObs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting && !animating) {
+          runSequence();
+          startObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.3 });
+    startObs.observe(scene);
+  })();
+
+  // ── Data Hall — Escort robot animation ────────────────────
+  (function() {
+    const aisle     = document.getElementById('dh-aisle');
+    const dhCamera  = document.getElementById('dh-camera');
+    const robot     = document.getElementById('dh-robot');
+    const human     = document.getElementById('dh-human');
+    const scan      = document.getElementById('dh-scan');
+    const laser     = document.getElementById('dh-laser');
+    const rackDoor  = document.getElementById('dh-rack-door');
+    const guideLine = document.getElementById('dh-guide-line');
+    const guideArrow= document.getElementById('dh-guide-arrow');
+    const hudEscort = document.getElementById('dh-hud-escort');
+    const hudVerify = document.getElementById('dh-hud-verify');
+    const hudLog    = document.getElementById('dh-hud-log');
+    const dhMode    = document.getElementById('dh-mode');
+    const logLast   = document.getElementById('dh-log-last');
+    const dhEta     = document.getElementById('dh-eta');
+    const scanStatus= document.getElementById('dh-scan-status');
+    const armL      = document.getElementById('dh-arm-l');
+    const armR      = document.getElementById('dh-arm-r');
+    const scanData  = [1,2,3,4,5].map(i => document.getElementById('dh-scan-d' + i));
+    const narration = document.getElementById('dh-narration');
+    const narrText  = document.getElementById('dh-narration-text');
+    const narrDot   = document.getElementById('dh-narration-dot');
+
+    if (!aisle) return;
+
+    function setNarration(text, amber) {
+      if (!narration) return;
+      narrText.textContent = text;
+      if (amber) narrDot.classList.add('amber');
+      else narrDot.classList.remove('amber');
+      narration.classList.remove('hidden');
+      narration.classList.add('visible');
+    }
+
+    function hideNarration() {
+      if (!narration) return;
+      narration.classList.remove('visible');
+      narration.classList.add('hidden');
+    }
+
+    // Mouse parallax
+    const datahall = document.querySelector('.datahall');
+    if (datahall) {
+      datahall.addEventListener('mousemove', e => {
+        const rect = datahall.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width - 0.5;
+        const my = (e.clientY - rect.top) / rect.height - 0.5;
+        if (dhCamera) {
+          dhCamera.style.transform = `rotateY(${mx * 4}deg) rotateX(${-my * 3}deg)`;
+        }
+      }, { passive: true });
+      datahall.addEventListener('mouseleave', () => {
+        if (dhCamera) dhCamera.style.transform = '';
+      });
+    }
+
+    // Scroll reveal for datahall
+    const dhReveals = datahall.querySelectorAll('.reveal-sc');
+    const dhObs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          dhObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    dhReveals.forEach(el => dhObs.observe(el));
+
+    function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    let dhAnimating = false;
+
+    // Smooth easing — no stops, continuous motion
+    const WALK = 'left 5s cubic-bezier(.25,.46,.45,.94), bottom 5s cubic-bezier(.25,.46,.45,.94)';
+    const WALK_HUMAN = 'left 5.4s cubic-bezier(.25,.46,.45,.94), bottom 5.4s cubic-bezier(.25,.46,.45,.94)';
+
+    function scrambleText(el, finalText) {
+      const chars = '█▓▒░ABCDEF0123456789.:[]';
+      const dur = 350;
+      const start = performance.now();
+      (function tick(now) {
+        const pct = Math.min((now - start) / dur, 1);
+        const locked = Math.floor(pct * finalText.length);
+        let r = '';
+        for (let j = 0; j < finalText.length; j++) {
+          if (finalText[j] === ' ' || finalText[j] === ':') { r += finalText[j]; continue; }
+          r += j < locked ? finalText[j] : chars[Math.floor(Math.random() * chars.length)];
+        }
+        el.textContent = r;
+        if (pct < 1) requestAnimationFrame(tick);
+        else el.textContent = finalText;
+      })(performance.now());
+    }
+
+    async function runDhSequence() {
+      if (dhAnimating) return;
+      dhAnimating = true;
+
+      // ── Reset (instant) ──
+      robot.style.transition = 'none';
+      human.style.transition = 'none';
+      robot.style.left = '24%'; robot.style.bottom = '28%';
+      human.style.left = '34%'; human.style.bottom = '34%';
+      scan.classList.remove('active', 'sweep');
+      if (laser) { laser.classList.remove('active'); laser.style.visibility = 'hidden'; laser.style.opacity = '0'; }
+      if (rackDoor) rackDoor.classList.remove('open');
+      guideLine.classList.remove('active');
+      guideArrow.classList.remove('visible');
+      hudEscort.classList.remove('visible');
+      hudVerify.classList.remove('visible');
+      hudLog.classList.remove('visible');
+      scanData.forEach(d => { if (d) d.classList.remove('visible'); });
+      if (armL) armL.classList.remove('reaching');
+      if (armR) armR.classList.remove('reaching');
+      if (dhMode) dhMode.textContent = 'Vendor Escort';
+      if (logLast) logLast.textContent = 'Escorting vendor to rack';
+      if (dhEta) dhEta.textContent = '45s';
+      if (scanStatus) scanStatus.textContent = 'Scanning...';
+      // Reset scan data text for next loop
+      const scanLabels = ['RU-26: HEALTHY — NO TOUCH', 'RU-25: HEALTHY — NO TOUCH', 'RU-24: VENDOR WORKING [AUTH]', 'RU-23: HEALTHY — NO TOUCH', 'RU-22: PSU AMBER — FLAGGED'];
+      scanData.forEach((d, i) => { if (d) d.textContent = scanLabels[i]; });
+
+      // Force reflow so reset applies before transitions start
+      void robot.offsetWidth;
+      hideNarration();
+
+      await wait(400);
+
+      // ── ONE CONTINUOUS WALK to the rack ──
+      robot.style.transition = WALK;
+      human.style.transition = WALK_HUMAN;
+      robot.style.left = '52%'; robot.style.bottom = '30%';
+      human.style.left = '62%'; human.style.bottom = '36%';
+
+      // HUD fades in while they're moving
+      hudEscort.classList.add('visible');
+      guideLine.classList.add('active');
+      guideArrow.classList.add('visible');
+      setNarration('Escorting vendor to assigned rack');
+
+      // ETA counts down smoothly during walk
+      await wait(1200);
+      if (dhMode) dhMode.textContent = 'En Route — Vendor';
+      if (dhEta) dhEta.textContent = '30s';
+
+      await wait(1500);
+      if (dhEta) dhEta.textContent = '15s';
+      setNarration('Approaching CAB-B3 — vendor authorized for RU-24 only');
+
+      await wait(1500);
+      if (dhEta) dhEta.textContent = '5s';
+
+      await wait(800);
+      // ── ARRIVE ──
+      if (dhMode) dhMode.textContent = 'Arrived';
+      if (dhEta) dhEta.textContent = '0s';
+      if (logLast) logLast.textContent = 'Vendor at CAB-B3 — opening rack';
+      setNarration('Arrived — opening rack, starting baseline scan');
+      guideLine.classList.remove('active');
+      guideArrow.classList.remove('visible');
+
+      // Human reaches + door opens at the same time — no pause
+      if (armL) armL.classList.add('reaching');
+      if (armR) armR.classList.add('reaching');
+      if (rackDoor) rackDoor.classList.add('open');
+      hudLog.classList.add('visible');
+      if (logLast) logLast.textContent = 'Rack open — baseline scan starting';
+
+      await wait(800);
+
+      // ── LASER SCAN — beam fires from robot eye, sweeps top-to-bottom ──
+      if (dhMode) dhMode.textContent = 'Scanning Rack';
+      hudVerify.classList.add('visible');
+      setNarration('Scanning rack top-to-bottom — checking every node');
+
+      // Beam from robot eye — angles up toward rack top, then sweeps down
+      scan.classList.add('active');
+      await wait(600);
+      scan.classList.add('sweep');
+
+      // Laser bar sweeps down the rack face (top to bottom)
+      if (laser) {
+        laser.style.right = '20%';
+        laser.style.left = '';
+        laser.style.top = '10%';
+        laser.classList.add('active');
+      }
+
+      // Data readouts appear timed with the laser descending
+      const scanDelay = 550;
+      for (let i = 0; i < scanData.length; i++) {
+        setTimeout(() => {
+          if (scanData[i]) {
+            const finalText = scanData[i].textContent;
+            scanData[i].classList.add('visible');
+            scrambleText(scanData[i], finalText);
+          }
+        }, i * scanDelay);
+      }
+
+      await wait(scanData.length * scanDelay + 600);
+      if (scanStatus) scanStatus.textContent = 'Baselined';
+      if (logLast) logLast.textContent = 'Health baselined — monitoring vendor on RU-24';
+      setNarration('Baseline complete — vendor working on RU-24');
+
+      // Flag RU-22 PSU issue found during scan (subtle amber, not dramatic)
+      if (scanData[4]) {
+        scanData[4].classList.add('flagged');
+      }
+
+      await wait(1200);
+
+      // ── MONITORING — laser fades, robot holds position ──
+      if (dhMode) dhMode.textContent = 'Monitoring Work';
+      scan.classList.remove('active', 'sweep');
+      if (laser) { laser.classList.remove('active'); laser.style.visibility = 'hidden'; laser.style.opacity = '0'; }
+      setNarration('Monitoring — watching for unauthorized contact on adjacent nodes');
+
+      await wait(1000);
+
+      // Subtle alert: adjacent node briefly touched — quiet amber warning
+      if (scanData[1]) {
+        const origText = scanData[1].textContent;
+        scanData[1].textContent = 'RU-25: BRIEF CONTACT — CHECKING';
+        scanData[1].classList.add('flagged');
+        setNarration('RU-25 contact detected — verifying', true);
+        await wait(1400);
+        // Resolves — it was just a brush, nothing changed
+        scanData[1].textContent = 'RU-25: CLEARED — NO CHANGE';
+        scanData[1].classList.remove('flagged');
+        setNarration('RU-25 cleared — no state change detected');
+      }
+
+      await wait(1200);
+
+      // ── COMPLETE — everything closes and walks back in one motion ──
+      if (dhMode) dhMode.textContent = 'Verified';
+      if (armL) armL.classList.remove('reaching');
+      if (armR) armR.classList.remove('reaching');
+      if (rackDoor) rackDoor.classList.remove('open');
+      if (logLast) logLast.textContent = 'No unauthorized touches. Work logged.';
+      scanData.forEach(d => { if (d) { d.classList.remove('visible', 'flagged'); } });
+      setNarration('Work complete — no unauthorized changes. Logged and closing rack.');
+
+      // Walk back — continuous, no stops
+      robot.style.transition = WALK;
+      human.style.transition = WALK_HUMAN;
+      robot.style.left = '24%'; robot.style.bottom = '28%';
+      human.style.left = '34%'; human.style.bottom = '34%';
+
+      await wait(2000);
+      hudEscort.classList.remove('visible');
+      hudVerify.classList.remove('visible');
+      hudLog.classList.remove('visible');
+      hideNarration();
+
+      await wait(3200);
+      dhAnimating = false;
+      runDhSequence();
+    }
+
+    // Start when in view
+    const dhStartObs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting && !dhAnimating) {
+          runDhSequence();
+          dhStartObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.25 });
+    dhStartObs.observe(aisle);
+  })();
+
+  // ── Nav logo scramble on load ────────────────────────────
+  (function() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    function scramble(el, finalText, delay) {
+      const duration = 900;
+      const start    = performance.now() + delay;
+      requestAnimationFrame(function tick(now) {
+        if (now < start) { requestAnimationFrame(tick); return; }
+        const pct = Math.min((now - start) / duration, 1);
+        const lockIdx = Math.floor(pct * finalText.length);
+        let result = '';
+        for (let i = 0; i < finalText.length; i++) {
+          if (finalText[i] === ' ') { result += ' '; continue; }
+          result += i < lockIdx
+            ? finalText[i]
+            : chars[Math.floor(Math.random() * chars.length)];
+        }
+        el.lastChild.textContent = result;
+        if (pct < 1) requestAnimationFrame(tick);
+      });
+    }
+    const logo = document.querySelector('.nav-logo');
+    if (logo) scramble(logo, 'FloorCrew', 1400);
+  })();
+
+  // ── Platform vote buttons ──────────────────────────────────
+  function votePlatform(btn) {
+    // Clear all votes
+    document.querySelectorAll('.platform-vote-btn').forEach(b => b.classList.remove('voted'));
+    document.querySelectorAll('.platform-vote-btn').forEach(b => b.textContent = 'Vote for this');
+    // Set this one
+    btn.classList.add('voted');
+    btn.textContent = 'Your pick';
+  }
+
+  // ── Counter item hover ripple tracking ───────────────────
+  document.querySelectorAll('.counter-item').forEach(el => {
+    el.addEventListener('mousemove', e => {
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+      el.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+    }, { passive: true });
+  });
+
+  // Register platform cards for cursor hover
+  document.querySelectorAll('.platform-card').forEach(el => {
+    const dot = document.getElementById('c-dot');
+    const ring = document.getElementById('c-ring');
+    if (dot && ring) {
+      el.addEventListener('mouseenter', () => { dot.classList.add('hover'); ring.classList.add('hover'); });
+      el.addEventListener('mouseleave', () => { dot.classList.remove('hover'); ring.classList.remove('hover'); });
+    }
+  });
+  </script>
+
+</body>
+</html>

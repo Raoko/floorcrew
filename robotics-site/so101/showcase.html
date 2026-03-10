@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FloorCrew — SO-101 Arm | Project Scope</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg-2: #f4f6fa;
+      --bg-card: rgba(10,22,40,0.025);
+      --bg-dark: #eaeff5;
+      --border: rgba(10,22,40,0.08);
+      --border-hi: rgba(10,42,107,0.35);
+      --text: #0a1628;
+      --text-muted: #5a6b85;
+      --accent: #0a2f6b;
+      --accent-2: #1a5aaa;
+      --accent-glow: rgba(10,47,107,0.08);
+      --green: #16a34a;
+      --green-glow: rgba(22,163,74,0.08);
+      --amber: #d97706;
+      --amber-glow: rgba(217,119,6,0.08);
+      --red: #dc2626;
+      --red-glow: rgba(220,38,38,0.08);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+
+    /* ─── Grain ─── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.025'/%3E%3C/svg%3E");
+      background-size: 256px;
+      pointer-events: none; z-index: 9990;
+    }
+
+    .container { max-width: 920px; margin: 0 auto; padding: 0 2rem; }
+
+    /* ─── 3D Scene ─── */
+    .scene-3d {
+      perspective: 1200px;
+      perspective-origin: 50% 40%;
+    }
+
+    /* ─── Header ─── */
+    header {
+      padding: 3rem 0 2rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0;
+    }
+
+    .breadcrumb {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      margin-bottom: 1.5rem;
+      text-transform: uppercase;
+    }
+
+    .breadcrumb span { color: var(--accent-2); font-weight: 600; }
+
+    header h1 {
+      font-size: clamp(2rem, 4.5vw, 3.2rem);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.1;
+      margin-bottom: 0.75rem;
+      color: var(--accent);
+    }
+
+    header p {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      max-width: 650px;
+      line-height: 1.7;
+    }
+
+    .meta-row {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .meta-row strong { color: var(--text); }
+
+    /* ─── Hero Image (blended background) ─── */
+    .hero-zone {
+      position: relative;
+      width: calc(100% + 4rem);
+      margin-left: -2rem;
+      margin-top: -1px;
+      padding: 4rem 2rem 5rem;
+      overflow: hidden;
+      background: linear-gradient(135deg, var(--accent) 0%, #0d3d8a 40%, #1a5aaa 70%, #2563eb 100%);
+    }
+
+    .hero-zone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 75% 50%, rgba(255,255,255,0.06) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 80% at 20% 80%, rgba(0,0,0,0.15) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .hero-zone::after {
+      content: '';
+      position: absolute;
+      bottom: -2px; left: 0; right: 0;
+      height: 80px;
+      background: linear-gradient(180deg, transparent, var(--bg));
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 2;
+      max-width: 920px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      align-items: center;
+    }
+
+    .hero-text h2 {
+      color: rgba(255,255,255,0.95);
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+      line-height: 1.15;
+    }
+
+    .hero-text p {
+      color: rgba(255,255,255,0.6);
+      font-size: 0.88rem;
+      line-height: 1.7;
+    }
+
+    .hero-stats-row {
+      display: flex;
+      gap: 2rem;
+      margin-top: 1.5rem;
+    }
+
+    .hero-stat-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1;
+    }
+
+    .hero-stat-label {
+      font-size: 0.62rem;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 0.25rem;
+    }
+
+    .hero-img-wrap {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.08);
+      transform: rotateY(-4deg) rotateX(2deg);
+      transition: transform 0.6s ease, box-shadow 0.6s ease;
+      animation: hero-float 6s ease-in-out infinite;
+    }
+
+    .hero-img-wrap:hover {
+      transform: rotateY(0deg) rotateX(0deg) scale(1.02);
+      box-shadow: 0 32px 100px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.12);
+    }
+
+    @keyframes hero-float {
+      0%, 100% { transform: rotateY(-4deg) rotateX(2deg) translateY(0); }
+      50% { transform: rotateY(-4deg) rotateX(2deg) translateY(-8px); }
+    }
+
+    .hero-img-wrap img {
+      width: 100%;
+      height: 320px;
+      object-fit: cover;
+      object-position: center 35%;
+      display: block;
+    }
+
+    .hero-img-wrap .img-badge {
+      position: absolute;
+      bottom: 0.75rem;
+      left: 0.75rem;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(12px);
+      color: rgba(255,255,255,0.7);
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.7rem;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    /* Animated grid lines behind hero */
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      opacity: 0.08;
+    }
+
+    .hero-grid-line {
+      position: absolute;
+      background: #ffffff;
+    }
+
+    .hero-grid-line.h {
+      height: 1px;
+      left: 0; right: 0;
+      animation: grid-slide-h 12s linear infinite;
+    }
+
+    .hero-grid-line.v {
+      width: 1px;
+      top: 0; bottom: 0;
+      animation: grid-slide-v 15s linear infinite;
+    }
+
+    @keyframes grid-slide-h {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(400%); }
+    }
+
+    @keyframes grid-slide-v {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(600%); }
+    }
+
+    /* Scanning line effect */
+    .scan-line {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      z-index: 4;
+      animation: scan 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes scan {
+      0%, 100% { top: 0; opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+
+    @media (max-width: 640px) {
+      .hero-inner { grid-template-columns: 1fr; gap: 2rem; }
+      .hero-img-wrap { transform: none; animation: none; }
+      .hero-img-wrap img { height: 220px; }
+      .hero-zone { padding: 2.5rem 2rem 3.5rem; }
+    }
+
+    /* ─── Sections ─── */
+    .section { margin-bottom: 4rem; }
+
+    .section-label {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--accent-2);
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+    }
+
+    h2 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 1.25rem;
+      color: var(--accent);
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      margin-top: 2rem;
+      color: var(--text);
+    }
+
+    p, li { font-size: 0.9rem; color: var(--text-muted); line-height: 1.75; }
+    p + p { margin-top: 0.75rem; }
+    ul { padding-left: 1.25rem; margin-top: 0.5rem; }
+    li { margin-bottom: 0.35rem; }
+    li strong { color: var(--text); }
+
+    a { color: var(--accent-2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ─── Callout ─── */
+    .callout {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 12px 12px 0;
+      padding: 1.25rem 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .callout.warn { border-left-color: var(--amber); }
+    .callout.risk { border-left-color: var(--red); }
+    .callout p { margin: 0; }
+
+    /* ─── Code ─── */
+    .code-block {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      font-family: 'SF Mono', 'Fira Code', 'Menlo', monospace;
+      font-size: 0.76rem;
+      line-height: 1.85;
+      overflow-x: auto;
+      white-space: pre;
+      color: var(--text-muted);
+      margin: 1rem 0;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .code-block:hover {
+      border-color: var(--border-hi);
+      box-shadow: 0 4px 24px var(--accent-glow);
+    }
+
+    .code-block .hl { color: var(--accent); font-weight: 600; }
+    .code-block .gr { color: var(--green); }
+    .code-block .am { color: var(--amber); }
+    .code-block .bl { color: var(--accent-2); }
+    .code-block .cm { color: #94a3b8; }
+
+    /* ─── Diagram ─── */
+    .diagram {
+      background: var(--accent);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 2rem;
+      font-family: 'SF Mono', 'Fira Code', 'Menlo', monospace;
+      font-size: 0.7rem;
+      line-height: 1.75;
+      overflow-x: auto;
+      white-space: pre;
+      color: rgba(255,255,255,0.7);
+      margin: 1.5rem 0;
+      transform-style: preserve-3d;
+      transform: rotateX(2deg);
+      transition: transform 0.5s ease, box-shadow 0.5s ease;
+      box-shadow: 0 20px 60px rgba(10,47,107,0.15);
+    }
+
+    .diagram:hover {
+      transform: rotateX(0deg);
+      box-shadow: 0 30px 80px rgba(10,47,107,0.2);
+    }
+
+    .diagram .hl { color: #93c5fd; font-weight: 600; }
+    .diagram .gr { color: #86efac; }
+    .diagram .am { color: #fcd34d; }
+    .diagram .bl { color: #a5b4fc; }
+
+    /* ─── Table ─── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+    }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.84rem;
+    }
+
+    th {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    td { color: var(--text); }
+    tr { transition: background 0.2s; }
+    tr:hover td { background: var(--bg-2); }
+
+    .tag {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 100px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .tag-green { background: var(--green-glow); color: var(--green); }
+    .tag-amber { background: var(--amber-glow); color: var(--amber); }
+    .tag-red { background: var(--red-glow); color: var(--red); }
+    .tag-blue { background: var(--accent-glow); color: var(--accent-2); }
+
+    code {
+      background: var(--bg-2);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-family: 'SF Mono', monospace;
+    }
+
+    /* ─── Pipeline ─── */
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      margin: 1.5rem 0;
+      transform-style: preserve-3d;
+    }
+
+    .pipeline-step {
+      padding: 1.75rem 1.25rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      text-align: center;
+      position: relative;
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s;
+    }
+
+    .pipeline-step:first-child { border-radius: 14px 0 0 14px; }
+    .pipeline-step:last-child { border-radius: 0 14px 14px 0; }
+
+    .pipeline-step:hover {
+      transform: translateY(-4px) rotateX(2deg);
+      box-shadow: 0 12px 32px var(--accent-glow);
+      border-color: var(--border-hi);
+      z-index: 2;
+    }
+
+    .pipeline-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      right: -1px; top: 50%;
+      transform: translateY(-50%);
+      width: 0; height: 0;
+      border: 8px solid transparent;
+      border-left-color: var(--accent);
+      z-index: 3;
+    }
+
+    .step-num {
+      font-size: 0.62rem;
+      color: var(--accent-2);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+    }
+
+    .step-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 0.25rem;
+      color: var(--accent);
+    }
+
+    .step-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .step-cmd {
+      font-family: 'SF Mono', monospace;
+      font-size: 0.66rem;
+      color: var(--accent);
+      background: var(--accent-glow);
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      display: inline-block;
+      margin-top: 0.75rem;
+      font-weight: 500;
+    }
+
+    /* ─── Cards ─── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+      transform-style: preserve-3d;
+    }
+
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.3s;
+      transform-style: preserve-3d;
+    }
+
+    .card:hover {
+      transform: translateY(-6px) rotateX(2deg) rotateY(-1deg);
+      border-color: var(--border-hi);
+      box-shadow: 0 16px 48px var(--accent-glow);
+    }
+
+    .card h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+
+    .card p { font-size: 0.82rem; }
+
+    /* ─── Timeline ─── */
+    .timeline {
+      position: relative;
+      padding-left: 2.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, var(--accent-2), var(--border));
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 1.75rem;
+      opacity: 0;
+      transform: translateX(-16px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .timeline-item.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -2.5rem;
+      top: 6px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 2.5px solid var(--accent-2);
+      transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .timeline-item:hover::before {
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+
+    .timeline-item.done::before {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .timeline-title {
+      font-weight: 700;
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+
+    .timeline-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    /* ─── Floating orbs (3D depth) ─── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: -1;
+      filter: blur(80px);
+      opacity: 0.4;
+    }
+
+    .orb-1 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(10,47,107,0.12), transparent 70%);
+      top: -10%; right: -10%;
+      animation: float-orb 20s ease-in-out infinite;
+    }
+
+    .orb-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(26,90,170,0.08), transparent 70%);
+      bottom: 20%; left: -8%;
+      animation: float-orb 25s ease-in-out infinite reverse;
+    }
+
+    @keyframes float-orb {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -20px) scale(1.05); }
+      66% { transform: translate(-20px, 15px) scale(0.95); }
+    }
+
+    /* ─── Video Slot ─── */
+    .video-slot {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: var(--bg-2);
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 1rem 0;
+      color: var(--text-muted);
+      gap: 0.5rem;
+      transition: border-color 0.3s;
+    }
+
+    .video-slot:hover { border-color: var(--border-hi); }
+    .video-slot-icon { font-size: 2rem; opacity: 0.25; }
+    .video-slot-text { font-size: 0.8rem; }
+
+    /* ─── Footer ─── */
+    footer {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 640px) {
+      .meta-row { gap: 1rem; }
+      .pipeline { grid-template-columns: 1fr; }
+      .pipeline-step { border-radius: 0 !important; }
+      .pipeline-step:first-child { border-radius: 14px 14px 0 0 !important; }
+      .pipeline-step:last-child { border-radius: 0 0 14px 14px !important; }
+      .pipeline-step:not(:last-child)::after { display: none; }
+      .diagram, .code-block { font-size: 0.6rem; padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Floating orbs ─── -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="container scene-3d">
+
+  <!-- ─── Header ─── -->
+  <header>
+    <div class="breadcrumb">FloorCrew / <span>SO-101 Arm</span></div>
+    <h1>SO-101 Robot Arm — Project Scope</h1>
+    <p>Open-source 6-DOF robot arm trained via imitation learning to perform repetitive DC floor tasks autonomously. A DCT physically demonstrates the task, the arm learns it, then executes it on its own.</p>
+    <div class="meta-row">
+      <span><strong>Status:</strong> Code scaffolded, hardware not ordered</span>
+      <span><strong>Track:</strong> Build with Velocity</span>
+      <span><strong>Owner:</strong> Romeo Patino</span>
+      <span><strong>Path:</strong> hackathon/robotics-site/so101/</span>
+    </div>
+  </header>
+
+  <!-- ─── Hero Zone ─── -->
+  <div class="hero-zone">
+    <div class="hero-grid">
+      <div class="hero-grid-line h" style="top:20%"></div>
+      <div class="hero-grid-line h" style="top:50%; animation-delay:-4s"></div>
+      <div class="hero-grid-line h" style="top:80%; animation-delay:-8s"></div>
+      <div class="hero-grid-line v" style="left:15%"></div>
+      <div class="hero-grid-line v" style="left:45%; animation-delay:-5s"></div>
+      <div class="hero-grid-line v" style="left:75%; animation-delay:-10s"></div>
+    </div>
+    <div class="scan-line"></div>
+    <div class="hero-inner">
+      <div class="hero-text">
+        <h2>6-DOF Imitation Learning Arm</h2>
+        <p>Record a task once. The arm learns it. Deploys autonomously on the DC floor — seating optics, scanning racks, dressing cables.</p>
+        <div class="hero-stats-row">
+          <div>
+            <div class="hero-stat-value">6</div>
+            <div class="hero-stat-label">Degrees of Freedom</div>
+          </div>
+          <div>
+            <div class="hero-stat-value">50</div>
+            <div class="hero-stat-label">Demos to Train</div>
+          </div>
+          <div>
+            <div class="hero-stat-value">~$300</div>
+            <div class="hero-stat-label">Total Cost</div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-img-wrap">
+        <img src="../so101-real.png" alt="SO-101 Robot Arm" />
+        <span class="img-badge">SO-ARM101</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Problem ─── -->
+  <div class="section">
+    <div class="section-label">Problem Statement</div>
+    <h2>Why this exists</h2>
+    <p>DCTs spend a significant portion of each shift on repetitive, fine-motor tasks that follow the same pattern every time: seating optics into transceiver cages, visually inspecting rack fronts for unseated cables or LED faults, routing and dressing cables along rack rails.</p>
+    <p>These tasks are physically draining, error-prone at volume, and don't require human judgment — just consistent, repeatable motion. A low-cost robot arm trained to replicate these motions could free DCTs to focus on diagnostic and break-fix work that actually requires thinking.</p>
+
+    <h3>Target DC tasks</h3>
+    <div class="cards">
+      <div class="card">
+        <h4>1. Optic Seating</h4>
+        <p><span class="tag tag-green">Best demo target</span></p>
+        <p>Pick an SFP/QSFP transceiver from a tray, align it to the cage, and push it in until it clicks. Small workspace, repeatable motion, clear success/fail.</p>
+      </div>
+      <div class="card">
+        <h4>2. Rack Inspection</h4>
+        <p><span class="tag tag-amber">CV-heavy, less manipulation</span></p>
+        <p>Arm-mounted camera sweeps across the rack front. CV detects unseated cables, missing drives, LED fault patterns.</p>
+      </div>
+      <div class="card">
+        <h4>3. Cable Dressing</h4>
+        <p><span class="tag tag-red">Hardest — needs 200+ demos</span></p>
+        <p>Route a patch cable along the rack rail and secure it. Requires complex grasping and path planning.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <p><strong>Hackathon strategy:</strong> Demo optic seating only. It's the most tractable task — small workspace, repeatable motion, 50 demonstrations is enough to train a working policy.</p>
+    </div>
+  </div>
+
+  <!-- ─── How It Works ─── -->
+  <div class="section">
+    <div class="section-label">How It Works</div>
+    <h2>Leader-follower imitation learning</h2>
+    <p>The SO-101 uses a <strong>leader-follower architecture</strong>. Two identical arms: the leader (lighter servos, manually moved) and the follower (stronger servos, mirrors the leader). When you move the leader arm, the follower copies every joint position in real time while recording the full trajectory + camera frames.</p>
+    <p>This recorded data becomes the training set. The LeRobot framework (HuggingFace) trains an ACT (Action Chunking with Transformers) policy that learns to predict the next sequence of joint positions given the current camera frame and joint state.</p>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="step-num">Phase 1</div>
+        <div class="step-title">Record</div>
+        <div class="step-desc">Move the leader arm through the task. Follower mirrors + records joints + camera.</div>
+        <div class="step-cmd">python record.py --task optic_seating</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">Phase 2</div>
+        <div class="step-title">Train</div>
+        <div class="step-desc">ACT policy learns the motion from 50 demonstrations. GPU required.</div>
+        <div class="step-cmd">python train.py --task optic_seating</div>
+      </div>
+      <div class="pipeline-step">
+        <div class="step-num">Phase 3</div>
+        <div class="step-title">Deploy</div>
+        <div class="step-desc">Follower arm executes the task autonomously using the trained model.</div>
+        <div class="step-cmd">python deploy.py --task optic_seating</div>
+      </div>
+    </div>
+
+    <h3>What is ACT?</h3>
+    <p><strong>Action Chunking with Transformers</strong> is an imitation learning policy from Tony Zhao et al. (Stanford). Instead of predicting one action at a time, it predicts a "chunk" of future actions (e.g., the next 100 timesteps) all at once, then executes them with temporal ensembling. This makes movements smooth and coherent rather than jerky.</p>
+
+    <h3>Why not reinforcement learning?</h3>
+    <p>RL requires a reward function, a simulation, and thousands of episodes. Imitation learning requires a human to demonstrate the task ~50 times. For a hackathon, imitation learning is dramatically faster.</p>
+  </div>
+
+  <!-- ─── Architecture ─── -->
+  <div class="section">
+    <div class="section-label">Architecture</div>
+    <h2>System design</h2>
+
+    <div class="diagram"><span class="hl">LEADER ARM</span> (6-DOF, lighter servos)          <span class="hl">FOLLOWER ARM</span> (6-DOF, 30kg.cm servos)
+┌────────────────────┐                        ┌────────────────────┐
+│  6x HX-10HM servos │                        │  6x HX-30HM servos │
+│  STS3215 bus        │                        │  STS3215 bus        │
+│  7.4V power         │                        │  12V power          │
+└────────┬───────────┘                        └────────┬───────────┘
+         │ USB-C                                       │ USB-C
+         │                                             │
+┌────────┴─────────────────────────────────────────────┴────────────┐
+│                        <span class="bl">COMPUTE (Laptop / Pi 5)</span>                     │
+│                                                                    │
+│  <span class="gr">LeRobot Framework</span>                                               │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐         │
+│  │  Teleoperate  │    │    Train     │    │   Deploy     │         │
+│  │  (record.py)  │    │  (train.py)  │    │ (deploy.py)  │         │
+│  │               │    │              │    │              │         │
+│  │ Leader joints ─┐   │ Dataset ──▶  │    │ Model ──▶    │         │
+│  │ Camera frames  │   │ ACT Policy   │    │ Joint cmds   │         │
+│  │ Follower cmds  │   │ ~2-4h train  │    │ Autonomous   │         │
+│  └───────┬────────┘   └──────────────┘    └──────────────┘         │
+│          │                                                         │
+│          ▼                                                         │
+│  <span class="am">USB Webcam</span> (640x480, top-down or side mount)                       │
+│  Records workspace during demos, feeds into policy at deploy time  │
+└────────────────────────────────────────────────────────────────────┘
+
+<span class="hl">DATA FLOW</span>
+Record: leader joints + camera → HuggingFace dataset (Parquet + video)
+Train:  dataset → ACT transformer → checkpoint (.pt)
+Deploy: camera frame + joint state → ACT model → predicted trajectory → follower</div>
+  </div>
+
+  <!-- ─── Hardware ─── -->
+  <div class="section">
+    <div class="section-label">Hardware</div>
+    <h2>Bill of materials</h2>
+
+    <h3>Option A: HiWonder kit (recommended)</h3>
+    <table>
+      <thead><tr><th>Part</th><th>Spec</th><th>Source</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td><strong>SO-ARM101 DIY Kit</strong></td><td>Both arms, 12x STS3215 servos, 2x BusLinker boards, power supplies, clamps, 3D parts</td><td><a href="https://www.hiwonder.com/products/lerobot-so-101">HiWonder</a></td><td>$270</td></tr>
+        <tr><td><strong>USB webcam</strong></td><td>1080p, OpenCV-compatible</td><td>Amazon</td><td>$25</td></tr>
+      </tbody>
+      <tfoot><tr><td colspan="3"><strong>Total</strong></td><td><strong>~$295</strong></td></tr></tfoot>
+    </table>
+
+    <h3>Kit tiers</h3>
+    <table>
+      <thead><tr><th>Tier</th><th>Price</th><th>What you get</th></tr></thead>
+      <tbody>
+        <tr><td>DIY (unassembled)</td><td>$270</td><td>All parts, you assemble (~2-3 hrs)</td></tr>
+        <tr><td>Starter (assembled)</td><td>$390</td><td>Pre-assembled, no camera</td></tr>
+        <tr><td>Standard (assembled)</td><td>$420</td><td>Pre-assembled + 480p camera</td></tr>
+        <tr><td>Advanced (assembled)</td><td>$460</td><td>Pre-assembled + 1080p camera</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Arm specifications</h3>
+    <table>
+      <thead><tr><th>Spec</th><th>Follower</th><th>Leader</th></tr></thead>
+      <tbody>
+        <tr><td>DOF</td><td>6</td><td>6</td></tr>
+        <tr><td>Servos</td><td>6x HX-30HM (STS3215)</td><td>6x HX-10HM (STS3215)</td></tr>
+        <tr><td>Torque</td><td>30 kg.cm</td><td>~10-15 kg.cm</td></tr>
+        <tr><td>Power</td><td>12V 5A</td><td>5V / 7.4V</td></tr>
+        <tr><td>Controller</td><td>BusLinker V3.0 (USB-C)</td><td>BusLinker V3.0 (USB-C)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Connections</h3>
+    <div class="diagram"><span class="hl">Laptop / Pi 5</span>
+  ├── USB-C ──▶ <span class="gr">BusLinker V3.0</span> ──▶ Leader Arm (6 servos, daisy-chained)
+  ├── USB-C ──▶ <span class="gr">BusLinker V3.0</span> ──▶ Follower Arm (6 servos, daisy-chained)
+  └── USB   ──▶ <span class="am">Webcam</span> (640x480, above workspace)
+
+<span class="hl">Power</span>
+  12V 5A PSU ──▶ Follower arm
+  5V PSU    ──▶ Leader arm</div>
+  </div>
+
+  <!-- ─── Software ─── -->
+  <div class="section">
+    <div class="section-label">Software</div>
+    <h2>Codebase</h2>
+
+    <div class="code-block"><span class="hl">hackathon/robotics-site/so101/</span>
+├── <span class="gr">record.py</span>        <span class="cm"># Record demos — leader-follower teleoperation</span>
+├── <span class="gr">train.py</span>         <span class="cm"># Train ACT policy on recorded dataset</span>
+├── <span class="gr">deploy.py</span>        <span class="cm"># Deploy trained policy — autonomous execution</span>
+├── requirements.txt  <span class="cm"># lerobot, torch, opencv, numpy, tensorboard</span>
+├── install.sh        <span class="cm"># One-command setup: venv + LeRobot + deps</span>
+└── HARDWARE.md       <span class="cm"># BOM, assembly notes, compute options</span></div>
+
+    <h3>Task registry</h3>
+    <table>
+      <thead><tr><th>Task</th><th>Episodes</th><th>Difficulty</th></tr></thead>
+      <tbody>
+        <tr><td>optic_seating</td><td>50</td><td><span class="tag tag-green">Low</span></td></tr>
+        <tr><td>rack_inspection</td><td>30</td><td><span class="tag tag-amber">Medium</span></td></tr>
+        <tr><td>cable_management</td><td>100</td><td><span class="tag tag-red">High</span></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Training compute</h3>
+    <table>
+      <thead><tr><th>Machine</th><th>Flag</th><th>Time (50 episodes)</th></tr></thead>
+      <tbody>
+        <tr><td>Mac M1/M2/M3/M4</td><td><code>--device mps</code></td><td>~2-4 hours</td></tr>
+        <tr><td>NVIDIA RTX 3060+</td><td><code>--device cuda</code></td><td>~1-2 hours</td></tr>
+        <tr><td>Google Colab (T4)</td><td><code>--device cuda</code></td><td>~3-5 hours (free)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Full setup</h3>
+    <div class="code-block"><span class="cm"># 1. Setup</span>
+cd hackathon/robotics-site/so101/
+chmod +x install.sh && <span class="gr">./install.sh</span>
+
+<span class="cm"># 2. Find arm ports</span>
+ls /dev/ttyACM*          <span class="cm"># Linux / Pi</span>
+ls /dev/cu.usbmodem*     <span class="cm"># Mac</span>
+
+<span class="cm"># 3. Record 50 demonstrations</span>
+<span class="gr">python record.py --task optic_seating --episodes 50</span>
+
+<span class="cm"># 4. Train (~2-4h on Mac)</span>
+<span class="gr">python train.py --task optic_seating --device mps</span>
+
+<span class="cm"># 5. Deploy — arm moves autonomously</span>
+<span class="gr">python deploy.py --task optic_seating</span></div>
+  </div>
+
+  <!-- ─── Alternative ─── -->
+  <div class="section">
+    <div class="section-label">Alternative</div>
+    <h2>Keyboard teleop (no leader arm)</h2>
+    <p>If budget is tight, Haoran Xu demonstrated single-arm control via keyboard. Keys map to individual joints. Recording still works — just slower to demonstrate. Saves ~$135 on the leader arm.</p>
+    <div class="callout">
+      <p><strong>Source:</strong> <a href="https://www.linkedin.com/pulse/lets-build-ai-hack-lerobot-so101-haoran-xu-onaqc/">Haoran Xu — "Build & AI Hack the LeRobot SO-101"</a> | <a href="https://github.com/seanxu112/lerobot/tree/teleop">Teleop branch</a></p>
+    </div>
+  </div>
+
+  <!-- ─── Risks ─── -->
+  <div class="section">
+    <div class="section-label">Risks</div>
+    <h2>What could go wrong</h2>
+    <table>
+      <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>Hardware doesn't arrive in time</td><td><span class="tag tag-red">High</span></td><td>Order ASAP. HiWonder ships US warehouse (2-5 days).</td></tr>
+        <tr><td>Assembly takes longer than expected</td><td><span class="tag tag-amber">Medium</span></td><td>Budget 3 hours. Or buy Starter kit ($390, pre-assembled).</td></tr>
+        <tr><td>50 demos isn't enough</td><td><span class="tag tag-amber">Medium</span></td><td>ACT works with 50 for simple manipulation. Record more if needed.</td></tr>
+        <tr><td>Training takes too long</td><td><span class="tag tag-amber">Medium</span></td><td>Google Colab free T4. Or train overnight on Mac.</td></tr>
+        <tr><td>Arm can't reliably seat optic</td><td><span class="tag tag-amber">Medium</span></td><td>Use a jig/guide to constrain position. Reduces workspace variance.</td></tr>
+        <tr><td>Demo day: model fails</td><td><span class="tag tag-red">High</span></td><td>Fallback: live teleoperation with leader arm. Still impressive.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── Timeline ─── -->
+  <div class="section">
+    <div class="section-label">Timeline</div>
+    <h2>Build schedule</h2>
+    <div class="timeline">
+      <div class="timeline-item done"><div class="timeline-title">Code scaffolded</div><div class="timeline-meta">record.py, train.py, deploy.py, install.sh, HARDWARE.md</div></div>
+      <div class="timeline-item done"><div class="timeline-title">Architecture designed</div><div class="timeline-meta">Leader-follower pipeline, ACT policy, task registry</div></div>
+      <div class="timeline-item"><div class="timeline-title">Order SO-ARM101 kit</div><div class="timeline-meta">HiWonder DIY ($270) or Starter ($390) — order this week</div></div>
+      <div class="timeline-item"><div class="timeline-title">Assemble arms</div><div class="timeline-meta">Follow HiWonder guide — ~2-3 hrs</div></div>
+      <div class="timeline-item"><div class="timeline-title">Install LeRobot + calibrate</div><div class="timeline-meta">Run install.sh, connect USB-C, calibrate servos — ~1 hr</div></div>
+      <div class="timeline-item"><div class="timeline-title">Record 50 demonstrations</div><div class="timeline-meta">~30 sec per demo, plus setup = ~1-2 hrs</div></div>
+      <div class="timeline-item"><div class="timeline-title">Train ACT policy</div><div class="timeline-meta">2-4 hrs on Mac (MPS) — runs unattended</div></div>
+      <div class="timeline-item"><div class="timeline-title">Evaluate + retrain</div><div class="timeline-meta">Run deploy.py, check success rate — ~2 hrs</div></div>
+      <div class="timeline-item"><div class="timeline-title">Demo polish</div><div class="timeline-meta">Build optic tray jig, camera feed display — ~1-2 hrs</div></div>
+      <div class="timeline-item"><div class="timeline-title">Record demo video</div><div class="timeline-meta">2-3 min: teleoperation → training → autonomous seating</div></div>
+    </div>
+    <div class="callout">
+      <p><strong>Total hands-on time:</strong> ~12-16 hours. Biggest variable is recording quality. Training runs unattended.</p>
+    </div>
+  </div>
+
+  <!-- ─── References ─── -->
+  <div class="section">
+    <div class="section-label">References</div>
+    <h2>Key resources</h2>
+    <table>
+      <thead><tr><th>Resource</th><th>What it is</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://github.com/huggingface/lerobot">huggingface/lerobot</a></td><td>Full framework: datasets, policies, training, deployment</td></tr>
+        <tr><td><a href="https://huggingface.co/docs/lerobot/en/il_robots">LeRobot IL Docs</a></td><td>Official SO-101 setup, recording, training guide</td></tr>
+        <tr><td><a href="https://github.com/TheRobotStudio/SO-ARM100">TheRobotStudio/SO-ARM100</a></td><td>Design files, STLs, BOM</td></tr>
+        <tr><td><a href="https://www.hiwonder.com/products/lerobot-so-101">HiWonder Kit</a></td><td>Pre-built kits — $270 to $460</td></tr>
+        <tr><td><a href="https://www.hackster.io/HiwonderRobot/how-to-use-the-hiwonder-lerobot-so-arm101-robotic-arm-275d60">Hackster.io Walkthrough</a></td><td>Full build + LeRobot integration tutorial</td></tr>
+        <tr><td><a href="https://github.com/huggingface/lerobot_hackathon_oct2024">LeRobot Hackathon Repo</a></td><td>HuggingFace hackathon examples</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── Demo ─── -->
+  <div class="section">
+    <div class="section-label">Demo</div>
+    <h2>Live demo</h2>
+    <div class="video-slot">
+      <div class="video-slot-icon">&#9654;</div>
+      <div class="video-slot-text">Demo video — coming March 23</div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>FloorCrew SO-101 Arm — CoreWeave Hackathon 2026</p>
+  <p style="margin-top:0.5rem">Built by Romeo Patino &middot; DCT @ EWR01</p>
+</footer>
+
+<script>
+  // Scroll-triggered section reveals
+  const sectionObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.06 });
+
+  document.querySelectorAll('.section, header').forEach(s => {
+    s.style.opacity = '0';
+    s.style.transform = 'translateY(28px)';
+    s.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    sectionObs.observe(s);
+  });
+
+  // Timeline stagger
+  const tlObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const items = e.target.querySelectorAll('.timeline-item');
+        items.forEach((item, i) => {
+          setTimeout(() => item.classList.add('visible'), i * 80);
+        });
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.timeline').forEach(t => tlObs.observe(t));
+
+  // Parallax on hero zone
+  window.addEventListener('scroll', () => {
+    const zone = document.querySelector('.hero-zone');
+    const img = document.querySelector('.hero-img-wrap');
+    if (zone && img) {
+      const y = window.scrollY;
+      zone.style.backgroundPosition = `center ${y * 0.3}px`;
+      img.style.transform = `rotateY(-4deg) rotateX(2deg) translateY(${-y * 0.08}px)`;
+    }
+  }, { passive: true });
+</script>
+
+</body>
+</html>
